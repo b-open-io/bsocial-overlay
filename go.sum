@@ -8,6 +8,8 @@ github.com/b-open-io/go-sdk v1.1.22-0.20250429153431-0a7620b47c68 h1:ohI5LomJdQR
 github.com/b-open-io/go-sdk v1.1.22-0.20250429153431-0a7620b47c68/go.mod h1:oM0t+xHwGxTLu5l5iUNceiv/MpQJXJdJKsFwpEgDVLI=
 github.com/b-open-io/go-templates v0.0.0-20250430153554-31b8e9d96908 h1:4MDBm5Ei2ge7b9ZDvgyGkILniasfBvMbwCSbmOk3iNs=
 github.com/b-open-io/go-templates v0.0.0-20250430153554-31b8e9d96908/go.mod h1:WGRlHWaKtbWFThUTEYAH0JRORj686gWKutZr28AmSuU=
+github.com/b-open-io/overlay v0.0.0-20250501010847-137f1ca60c5a h1:agPadhoeLnvoWDnmb8w9BFl4l5Nv6ZM+r+3NDJEeCWA=
+github.com/b-open-io/overlay v0.0.0-20250501010847-137f1ca60c5a/go.mod h1:At8YFxx0Tyd10yVwDUhmx3/DgJgMu0zpdBibfd6Ga0E=
 github.com/bitcoinschema/go-aip v0.3.3 h1:hTe9xbjVA6yGZgVjXdsdSprq9HEoZYMfNOXJBJlbE3E=
 github.com/bitcoinschema/go-aip v0.3.3/go.mod h1:Dw/AS97LfD8Jq4efsZAFG6gTZAVl3pp5yMDA5UmhhJY=
 github.com/bitcoinschema/go-b v0.2.3 h1:oq78sYf6GyKKZWOMrr7QXCT3xP3VjRUpL0ZFsvWm4wE=

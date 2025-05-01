@@ -82,6 +82,6 @@ replace github.com/bitcoin-sv/go-templates => github.com/b-open-io/go-templates 
 
 // replace github.com/bitcoin-sv/go-templates => ../go-templates
 
-// replace github.com/b-open-io/overlay => github.com/b-open-io/overlay v0.0.0-20250429210952-102a532767c6
+replace github.com/b-open-io/overlay => github.com/b-open-io/overlay v0.0.0-20250501010847-137f1ca60c5a
 
-replace github.com/b-open-io/overlay => ../overlay
+// replace github.com/b-open-io/overlay => ../overlay
