@@ -1,0 +1,1 @@
+go build -o server.run cmd/server/server.go
