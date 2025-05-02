@@ -68,7 +68,7 @@ func main() {
 	}()
 
 	var rdb *redis.Client
-	log.Println("Connecting to Redis", os.Getenv("REDIS"))
+	// log.Println("Connecting to Redis", os.Getenv("REDIS"))
 	if opts, err := redis.ParseURL(os.Getenv("REDIS")); err != nil {
 		log.Fatalf("Failed to parse Redis URL: %v", err)
 	} else {
