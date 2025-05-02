@@ -23,7 +23,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-var CONCURRENCY = 1
+var CONCURRENCY = 16
 var TOPIC string
 var FROM_BLOCK uint
 var QUEUE = "bsocial"
