@@ -25,7 +25,7 @@ import (
 
 var TOPIC string
 var FROM_BLOCK uint
-var TAG string
+var QUEUE = "bap"
 var chaintracker headers_client.Client
 var jb *junglebus.Client
 
@@ -42,7 +42,6 @@ func init() {
 	}
 
 	flag.StringVar(&TOPIC, "t", os.Getenv("TOPIC"), "Junglebus SubscriptionID")
-	flag.StringVar(&TAG, "tag", os.Getenv("QUEUE"), "Junglebus SubscriptionID")
 	flag.UintVar(&FROM_BLOCK, "s", 575000, "Start from block")
 	flag.Parse()
 
@@ -83,7 +82,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize storage: %v", err)
 	}
-	// bapStorage := &bap.BAPStorage{MongoStorage: store}
 	tm := "tm_bap"
 
 	lookupService, err := bap.NewLookupService(
@@ -129,7 +127,7 @@ func main() {
 				OnTransaction: func(txn *models.TransactionResponse) {
 					txcount++
 					log.Printf("[TX]: %d - %d: %d %s\n", txn.BlockHeight, txn.BlockIndex, len(txn.Transaction), txn.Id)
-					if err := rdb.ZAdd(ctx, TAG, redis.Z{
+					if err := rdb.ZAdd(ctx, QUEUE, redis.Z{
 						Member: txn.Id,
 						Score:  float64(txn.BlockHeight)*1e9 + float64(txn.BlockIndex),
 					}).Err(); err != nil {
@@ -194,7 +192,7 @@ func main() {
 
 	for {
 		txids, err := rdb.ZRangeArgs(ctx, redis.ZRangeArgs{
-			Key:     "bap",
+			Key:     QUEUE,
 			Stop:    "+inf",
 			Start:   "-inf",
 			ByScore: true,
@@ -237,7 +235,7 @@ func main() {
 					} else if admit, err := e.Submit(ctx, taggedBeef, engine.SubmitModeHistorical, nil); err != nil {
 						log.Fatalf("Failed to submit transaction: %v", err)
 					} else {
-						if err := rdb.ZRem(ctx, "bap", txidStr).Err(); err != nil {
+						if err := rdb.ZRem(ctx, QUEUE, txidStr).Err(); err != nil {
 							log.Fatalf("Failed to delete from queue: %v", err)
 						}
 						log.Println("Processed", txid, "in", time.Since(logTime), "as", admit[tm].OutputsToAdmit)
