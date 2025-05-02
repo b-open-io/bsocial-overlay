@@ -41,8 +41,8 @@ func init() {
 		ApiKey: os.Getenv("BLOCK_HEADERS_API_KEY"),
 	}
 
-	flag.StringVar(&TOPIC, "t", "", "Junglebus SubscriptionID")
-	flag.StringVar(&TAG, "tag", "sub", "Junglebus SubscriptionID")
+	flag.StringVar(&TOPIC, "t", os.Getenv("TOPIC"), "Junglebus SubscriptionID")
+	flag.StringVar(&TAG, "tag", os.Getenv("QUEUE"), "Junglebus SubscriptionID")
 	flag.UintVar(&FROM_BLOCK, "s", 575000, "Start from block")
 	flag.Parse()
 
