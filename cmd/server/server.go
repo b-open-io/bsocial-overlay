@@ -299,7 +299,7 @@ func main() {
 				Status:  "ERROR",
 				Message: err.Error(),
 			})
-		} else if len(id.Profile) == 0 {
+		} else if id == nil || len(id.Profile) == 0 {
 			return c.Status(fiber.StatusNotFound).JSON(Response{
 				Status:  "ERROR",
 				Message: fmt.Sprintf("Profile not found for BAPID %s", bapId),

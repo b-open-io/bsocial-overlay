@@ -135,7 +135,7 @@ func (l *LookupService) GetMetaData() *overlay.MetaData {
 
 func (l *LookupService) LoadIdentityById(ctx context.Context, id string) (*Identity, error) {
 	identity := &Identity{}
-	err := l.db.Collection("identities").FindOne(ctx, bson.M{"id": id}).Decode(identity)
+	err := l.db.Collection("identities").FindOne(ctx, bson.M{"_id": id}).Decode(identity)
 	if err == mongo.ErrNoDocuments {
 		return nil, nil
 	} else if err != nil {
