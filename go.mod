@@ -13,6 +13,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/redis/go-redis/v9 v9.7.3
 	go.mongodb.org/mongo-driver v1.17.3
+	go.mongodb.org/mongo-driver/v2 v2.2.0
 )
 
 require (
@@ -60,7 +61,6 @@ require (
 	github.com/xdg-go/stringprep v1.0.4 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
-	go.mongodb.org/mongo-driver/v2 v2.2.0 // indirect
 	golang.org/x/crypto v0.37.0 // indirect
 	golang.org/x/exp v0.0.0-20220909182711-5c715a9e8561 // indirect
 	golang.org/x/sync v0.13.0 // indirect
@@ -71,18 +71,18 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-// replace github.com/4chain-ag/go-overlay-services => github.com/4chain-ag/go-overlay-services v0.1.1-0.20250415204231-5c9e736aceec
+replace github.com/4chain-ag/go-overlay-services => github.com/4chain-ag/go-overlay-services v0.1.1-0.20250502204850-eb5e5c08794f
 
-replace github.com/4chain-ag/go-overlay-services => ../go-overlay-services
+// replace github.com/4chain-ag/go-overlay-services => ../go-overlay-services
 
 replace github.com/bsv-blockchain/go-sdk => github.com/b-open-io/go-sdk v1.1.22-0.20250429153431-0a7620b47c68
 
 // replace github.com/bsv-blockchain/go-sdk => ../go-sdk
 
-// replace github.com/bitcoin-sv/go-templates => github.com/b-open-io/go-templates v0.0.0-20250430153554-31b8e9d96908
+replace github.com/bitcoin-sv/go-templates => github.com/b-open-io/go-templates v0.0.0-20250502204935-972b5d27541f
 
-replace github.com/bitcoin-sv/go-templates => ../go-templates
+// replace github.com/bitcoin-sv/go-templates => ../go-templates
 
-// replace github.com/b-open-io/overlay => github.com/b-open-io/overlay v0.0.0-20250501010847-137f1ca60c5a
+replace github.com/b-open-io/overlay => github.com/b-open-io/overlay v0.0.0-20250502205001-b42117b55b35
 
-replace github.com/b-open-io/overlay => ../overlay
+// replace github.com/b-open-io/overlay => ../overlay
