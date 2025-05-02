@@ -52,7 +52,7 @@ func main() {
 	var sub *junglebus.Subscription
 	txcount := 0
 	var err error
-	fromBlock := uint64(590000)
+	fromBlock := uint64(FROM_BLOCK)
 	fromPage := uint64(0)
 	if progress, err := rdb.HGet(ctx, "progress", TOPIC).Int(); err == nil {
 		fromBlock = uint64(progress)

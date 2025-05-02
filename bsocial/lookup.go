@@ -18,18 +18,16 @@ import (
 )
 
 type LookupService struct {
-	mongo *mongo.Client
+	db *mongo.Database
 }
 
-var databaseName = "bmap"
-
-func NewLookupService(connString string) (*LookupService, error) {
+func NewLookupService(connString string, dbName string) (*LookupService, error) {
 	clientOptions := options.Client().ApplyURI(connString).SetMaxPoolSize(100)
 	if client, err := mongo.Connect(context.Background(), clientOptions); err != nil {
 		return nil, err
 	} else {
 		return &LookupService{
-			mongo: client,
+			db: client.Database(dbName),
 		}, nil
 	}
 }
@@ -55,7 +53,7 @@ func (l *LookupService) OutputAdded(ctx context.Context, outpoint *overlay.Outpo
 		return
 	}
 	delete(bsonData, "collection")
-	collection := l.mongo.Database(databaseName).Collection(collectionName)
+	collection := l.db.Collection(collectionName)
 	_, err = collection.UpdateOne(
 		ctx,
 		bson.M{"_id": bsonData["_id"]},
@@ -63,27 +61,6 @@ func (l *LookupService) OutputAdded(ctx context.Context, outpoint *overlay.Outpo
 		options.Update().SetUpsert(true),
 	)
 	return err
-
-	// output := tx.Outputs[outpoint.OutputIndex]
-	// if bc := bitcom.Decode(output.LockingScript); bc != nil {
-	// 	for _, proto := range bc.Protocols {
-	// 		if proto.Protocol == bitcom.MapPrefix {
-	// 			m := bitcom.DecodeMap(proto.Script)
-	// 			if m == nil || m.Data["type"] == "" {
-	// 				continue
-	// 			}
-	// 			switch m.Data["type"] {
-	// 			case "post":
-	// 			case "reply":
-	// 			case "like":
-	// 			case "unlike":
-	// 			case "follow":
-	// 			case "unfollow":
-	// 			case "message":
-	// 			}
-	// 		}
-	// 	}
-	// }
 
 }
 func (l *LookupService) OutputSpent(ctx context.Context, outpoint *overlay.Outpoint, topic string, beef []byte) error {

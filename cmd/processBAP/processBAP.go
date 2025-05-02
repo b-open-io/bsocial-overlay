@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"os"
 	"os/signal"
@@ -9,9 +10,11 @@ import (
 	"time"
 
 	"github.com/4chain-ag/go-overlay-services/pkg/core/engine"
+	"github.com/GorillaPool/go-junglebus"
+	"github.com/GorillaPool/go-junglebus/models"
 	"github.com/b-open-io/bsocial-overlay/bap"
+	"github.com/b-open-io/overlay/beef"
 	"github.com/b-open-io/overlay/storage"
-	"github.com/b-open-io/overlay/util"
 	"github.com/bsv-blockchain/go-sdk/chainhash"
 	"github.com/bsv-blockchain/go-sdk/overlay"
 	"github.com/bsv-blockchain/go-sdk/transaction"
@@ -20,7 +23,11 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+var TOPIC string
+var FROM_BLOCK uint
+var TAG string
 var chaintracker headers_client.Client
+var jb *junglebus.Client
 
 type txSummary struct {
 	tx  int
@@ -32,6 +39,18 @@ func init() {
 	chaintracker = headers_client.Client{
 		Url:    os.Getenv("BLOCK_HEADERS_URL"),
 		ApiKey: os.Getenv("BLOCK_HEADERS_API_KEY"),
+	}
+
+	flag.StringVar(&TOPIC, "t", "", "Junglebus SubscriptionID")
+	flag.StringVar(&TAG, "tag", "sub", "Junglebus SubscriptionID")
+	flag.UintVar(&FROM_BLOCK, "s", 575000, "Start from block")
+	flag.Parse()
+
+	var err error
+	if jb, err = junglebus.New(
+		junglebus.WithHTTP(os.Getenv("JUNGLEBUS")),
+	); err != nil {
+		log.Fatalf("Failed to create Junglebus client: %v", err)
 	}
 }
 
@@ -56,22 +75,20 @@ func main() {
 		rdb = redis.NewClient(opts)
 	}
 	// Initialize storage
-	txStore, err := util.NewRedisTxStorage(os.Getenv("REDIS_BEEF"))
+	beefStore, err := beef.NewMongoBeefStorage(os.Getenv("MONGO_URL"), "beef")
 	if err != nil {
 		log.Fatalf("Failed to initialize tx storage: %v", err)
 	}
-	store, err := storage.NewRedisStorage(os.Getenv("REDIS"), txStore)
+	store, err := storage.NewMongoStorage(os.Getenv("MONGO_URL"), "bap", beefStore)
 	if err != nil {
 		log.Fatalf("Failed to initialize storage: %v", err)
 	}
-	defer store.Close()
-	bapStorage := &bap.BAPStorage{RedisStorage: store}
+	// bapStorage := &bap.BAPStorage{MongoStorage: store}
 	tm := "tm_bap"
 
 	lookupService, err := bap.NewLookupService(
-		os.Getenv("REDIS"),
-		bapStorage,
-		tm,
+		os.Getenv("MONGO_URL"),
+		"bap",
 	)
 	if err != nil {
 		log.Fatalf("Failed to initialize lookup service: %v", err)
@@ -79,7 +96,7 @@ func main() {
 	e := engine.Engine{
 		Managers: map[string]engine.TopicManager{
 			tm: &bap.TopicManager{
-				Storage: bapStorage,
+				Lookup: lookupService,
 			},
 		},
 		LookupServices: map[string]engine.LookupService{
@@ -89,6 +106,65 @@ func main() {
 		ChainTracker: chaintracker,
 		PanicOnError: true,
 	}
+
+	go func() {
+		if TOPIC == "" {
+			return
+		}
+		txcount := 0
+		var err error
+		fromBlock := uint64(FROM_BLOCK)
+		fromPage := uint64(0)
+		if progress, err := rdb.HGet(ctx, "progress", TOPIC).Int(); err == nil {
+			fromBlock = uint64(progress)
+			log.Println("Resuming from block", fromBlock)
+		}
+
+		log.Println("Subscribing to Junglebus from block", fromBlock, fromPage)
+		if _, err = jb.SubscribeWithQueue(ctx,
+			TOPIC,
+			fromBlock,
+			fromPage,
+			junglebus.EventHandler{
+				OnTransaction: func(txn *models.TransactionResponse) {
+					txcount++
+					log.Printf("[TX]: %d - %d: %d %s\n", txn.BlockHeight, txn.BlockIndex, len(txn.Transaction), txn.Id)
+					if err := rdb.ZAdd(ctx, TAG, redis.Z{
+						Member: txn.Id,
+						Score:  float64(txn.BlockHeight)*1e9 + float64(txn.BlockIndex),
+					}).Err(); err != nil {
+						log.Panic(err)
+					}
+				},
+				OnStatus: func(status *models.ControlResponse) {
+					log.Printf("[STATUS]: %d %v %d processed\n", status.StatusCode, status.Message, txcount)
+					switch status.StatusCode {
+					case 200:
+						if err := rdb.HSet(ctx, "progress", TOPIC, status.Block+1).Err(); err != nil {
+							log.Panic(err)
+						}
+						txcount = 0
+					case 999:
+						log.Println(status.Message)
+						cancel()
+						return
+					}
+				},
+				OnError: func(err error) {
+					log.Printf("[ERROR]: %v\n", err)
+					cancel()
+				},
+			},
+			&junglebus.SubscribeOptions{
+				QueueSize: 10000000,
+				LiteMode:  true,
+			},
+		); err != nil {
+			log.Printf("[ERROR]: %v\n", err)
+			cancel()
+		}
+		<-ctx.Done()
+	}()
 
 	done := make(chan *txSummary, 1000)
 	go func() {
@@ -116,65 +192,66 @@ func main() {
 		}
 	}()
 
-	txids, err := rdb.ZRangeArgs(ctx, redis.ZRangeArgs{
-		Key:     "bap",
-		Stop:    "+inf",
-		Start:   "-inf",
-		ByScore: true,
-	}).Result()
-	if err != nil {
-		log.Fatalf("Failed to query Redis: %v", err)
-	}
+	for {
+		txids, err := rdb.ZRangeArgs(ctx, redis.ZRangeArgs{
+			Key:     "bap",
+			Stop:    "+inf",
+			Start:   "-inf",
+			ByScore: true,
+		}).Result()
+		if err != nil {
+			log.Fatalf("Failed to query Redis: %v", err)
+		}
 
-	for _, txidStr := range txids {
-		select {
-		case <-ctx.Done():
-			log.Println("Context canceled, stopping processing...")
-			return
-		default:
-			if txid, err := chainhash.NewHashFromHex(txidStr); err != nil {
-				log.Fatalf("Invalid txid: %v", err)
-			} else if tx, err := txStore.LoadTx(ctx, txid); err != nil {
-				log.Fatalf("Failed to load transaction: %v", err)
-			} else {
-				beef := &transaction.Beef{
-					Version:      transaction.BEEF_V2,
-					Transactions: map[string]*transaction.BeefTx{},
-				}
-				for _, input := range tx.Inputs {
-					if input.SourceTransaction, err = txStore.LoadTx(ctx, input.SourceTXID); err != nil {
-						log.Fatalf("Failed to load source transaction: %v", err)
-					} else if _, err := beef.MergeTransaction(input.SourceTransaction); err != nil {
+		for _, txidStr := range txids {
+			select {
+			case <-ctx.Done():
+				log.Println("Context canceled, stopping processing...")
+				return
+			default:
+				if txid, err := chainhash.NewHashFromHex(txidStr); err != nil {
+					log.Fatalf("Invalid txid: %v", err)
+				} else if beefBytes, err := beefStore.LoadBeef(ctx, txid); err != nil {
+					log.Fatalf("Failed to load transaction: %v", err)
+				} else if tx, err := transaction.NewTransactionFromBEEF(beefBytes); err != nil {
+					log.Fatalf("Failed to parse transaction: %v", err)
+				} else if tx == nil {
+					beef := transaction.NewBeefV2()
+					for _, input := range tx.Inputs {
+						if inputBeef, err := beefStore.LoadBeef(ctx, input.SourceTXID); err != nil {
+							log.Fatalf("Failed to load input transaction: %v", err)
+						} else if err := beef.MergeBeefBytes(inputBeef); err != nil {
+							log.Fatalf("Failed to merge source transaction: %v", err)
+						}
+					}
+					if _, err := beef.MergeTransaction(tx); err != nil {
 						log.Fatalf("Failed to merge source transaction: %v", err)
 					}
-				}
-				if _, err := beef.MergeTransaction(tx); err != nil {
-					log.Fatalf("Failed to merge source transaction: %v", err)
-				}
 
-				taggedBeef := overlay.TaggedBEEF{
-					Topics: []string{tm},
-				}
-				logTime := time.Now()
-				if taggedBeef.Beef, err = beef.AtomicBytes(txid); err != nil {
-					log.Fatalf("Failed to generate BEEF: %v", err)
-				} else if admit, err := e.Submit(ctx, taggedBeef, engine.SubmitModeHistorical, nil); err != nil {
-					log.Fatalf("Failed to submit transaction: %v", err)
-				} else {
-					if err := rdb.ZRem(ctx, "bap", txidStr).Err(); err != nil {
-						log.Fatalf("Failed to delete from queue: %v", err)
+					taggedBeef := overlay.TaggedBEEF{
+						Topics: []string{tm},
 					}
-					log.Println("Processed", txid, "in", time.Since(logTime), "as", admit[tm].OutputsToAdmit)
-					done <- &txSummary{
-						tx:  1,
-						out: len(admit[tm].OutputsToAdmit),
+					logTime := time.Now()
+					if taggedBeef.Beef, err = beef.AtomicBytes(txid); err != nil {
+						log.Fatalf("Failed to generate BEEF: %v", err)
+					} else if admit, err := e.Submit(ctx, taggedBeef, engine.SubmitModeHistorical, nil); err != nil {
+						log.Fatalf("Failed to submit transaction: %v", err)
+					} else {
+						if err := rdb.ZRem(ctx, "bap", txidStr).Err(); err != nil {
+							log.Fatalf("Failed to delete from queue: %v", err)
+						}
+						log.Println("Processed", txid, "in", time.Since(logTime), "as", admit[tm].OutputsToAdmit)
+						done <- &txSummary{
+							tx:  1,
+							out: len(admit[tm].OutputsToAdmit),
+						}
 					}
 				}
 			}
 		}
+		if len(txids) == 0 {
+			log.Println("No transactions to process, waiting for 10 seconds...")
+			time.Sleep(10 * time.Second)
+		}
 	}
-
-	// Close the database connection
-	// sub.QueueDb.Close()
-	log.Println("Application shutdown complete.")
 }

@@ -10,7 +10,7 @@ import (
 )
 
 type TopicManager struct {
-	Storage *BAPStorage
+	Lookup *LookupService
 }
 
 func (tm *TopicManager) IdentifyAdmissableOutputs(ctx context.Context, beefBytes []byte, previousCoins map[uint32][]byte) (admit overlay.AdmittanceInstructions, err error) {
@@ -41,7 +41,7 @@ func (tm *TopicManager) IdentifyAdmissableOutputs(ctx context.Context, beefBytes
 		if aip == nil {
 			continue
 		}
-		id, err := tm.Storage.LoadIdentityByAddress(ctx, aip.Address)
+		id, err := tm.Lookup.LoadIdentityByAddress(ctx, aip.Address)
 		if err != nil {
 			return admit, err
 		}

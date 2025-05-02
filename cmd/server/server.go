@@ -21,8 +21,11 @@ import (
 	"github.com/4chain-ag/go-overlay-services/pkg/core/engine"
 	"github.com/4chain-ag/go-overlay-services/pkg/server"
 	"github.com/b-open-io/bsocial-overlay/bap"
+	"github.com/b-open-io/bsocial-overlay/bsocial"
+	"github.com/b-open-io/overlay/beef"
 	"github.com/b-open-io/overlay/storage"
-	"github.com/b-open-io/overlay/util"
+
+	// "github.com/b-open-io/overlay/util"
 	"github.com/bsv-blockchain/go-sdk/transaction/broadcaster"
 	"github.com/bsv-blockchain/go-sdk/transaction/chaintracker/headers_client"
 	"github.com/gofiber/fiber/v2"
@@ -81,47 +84,50 @@ func main() {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 
-	txStore, err := util.NewRedisTxStorage(os.Getenv("REDIS_BEEF"))
+	beefStore, err := beef.NewMongoBeefStorage(os.Getenv("MONGO_URL"), "beef")
 	if err != nil {
 		log.Fatalf("Failed to initialize tx storage: %v", err)
 	}
-	store, err := storage.NewRedisStorage(os.Getenv("REDIS"), txStore)
+
+	bapStore, err := storage.NewMongoStorage(os.Getenv("MONGO_URL"), "bap", beefStore)
 	if err != nil {
 		log.Fatalf("Failed to initialize storage: %v", err)
 	}
-	if r, err := store.DB.Ping(ctx).Result(); err != nil {
-		log.Fatalf("Failed to ping Redis: %v", err)
-	} else {
-		log.Printf("Connected to Redis: %s", r)
-	}
-	defer store.Close()
-	bapStorage := &bap.BAPStorage{RedisStorage: store}
-	lookupService, err := bap.NewLookupService(
-		os.Getenv("REDIS"),
-		bapStorage,
-		"tm_bap",
+	// bapStorage := &bap.BAPStorage{MongoStorage: bapStore}
+	bapLookup, err := bap.NewLookupService(
+		os.Getenv("MONGO_URL"),
+		"bap",
 	)
 	if err != nil {
 		log.Fatalf("Failed to initialize lookup service: %v", err)
 	}
-	tm := "tm_bap"
+	bsocialLookup, err := bsocial.NewLookupService(
+		os.Getenv("MONGO_URL"),
+		"bsocial",
+	)
+	if err != nil {
+		log.Fatalf("Failed to initialize lookup service: %v", err)
+	}
+	// bapTm := "tm_bap"
 	e = &engine.Engine{
 		Managers: map[string]engine.TopicManager{
-			tm: &bap.TopicManager{
-				Storage: bapStorage,
+			"tm_bap": &bap.TopicManager{
+				Lookup: bapLookup,
 			},
+			"tm_bsocial": &bsocial.TopicManager{},
 		},
 		LookupServices: map[string]engine.LookupService{
-			"ls_bap": lookupService,
+			"ls_bap":     bapLookup,
+			"ls_bsocial": bsocialLookup,
 		},
-		Storage:      store,
-		ChainTracker: chaintracker,
+		Storage:           bapStore,
+		ChainTracker:      chaintracker,
 		SyncConfiguration: map[string]engine.SyncConfiguration{
-			tm: {
-				Type:        engine.SyncConfigurationPeers,
-				Peers:       peers,
-				Concurrency: 1,
-			},
+			// tm: {
+			// 	Type:        engine.SyncConfigurationPeers,
+			// 	Peers:       peers,
+			// 	Concurrency: 1,
+			// },
 		},
 		Broadcaster: &broadcaster.Arc{
 			ApiUrl:  "https://arc.taal.com/v1",
@@ -178,7 +184,7 @@ func main() {
 			req.Timestamp = currentBlock.Header.Timestamp
 		}
 
-		if id, err := bapStorage.LoadIdentityByAddress(c.Context(), req.Address); err != nil {
+		if id, err := bapLookup.LoadIdentityByAddress(c.Context(), req.Address); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(Response{
 				Status:  "ERROR",
 				Message: err.Error(),
@@ -188,16 +194,16 @@ func main() {
 				Status:  "ERROR",
 				Message: fmt.Sprintf("Identity not found for address %s", req.Address),
 			})
-		} else if err := bapStorage.PopulateAddressHeights(c.Context(), id); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(Response{
-				Status:  "ERROR",
-				Message: err.Error(),
-			})
-		} else if profile, err := bapStorage.LoadProfile(c.Context(), id.IDKey); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(Response{
-				Status:  "ERROR",
-				Message: err.Error(),
-			})
+			// } else if err := bapLookup.PopulateAddressHeights(c.Context(), id); err != nil {
+			// 	return c.Status(fiber.StatusInternalServerError).JSON(Response{
+			// 		Status:  "ERROR",
+			// 		Message: err.Error(),
+			// 	})
+			// } else if profile, err := bapStorage.LoadProfile(c.Context(), id.BapId); err != nil {
+			// 	return c.Status(fiber.StatusInternalServerError).JSON(Response{
+			// 		Status:  "ERROR",
+			// 		Message: err.Error(),
+			// 	})
 		} else if req.Block > 0 {
 			currentAddress := ""
 			for _, addr := range id.Addresses {
@@ -229,7 +235,7 @@ func main() {
 							Block:     req.Block,
 							Timestamp: req.Timestamp,
 						},
-						Profile: profile,
+						Profile: id.Profile,
 					},
 				})
 			}
@@ -264,7 +270,7 @@ func main() {
 							Block:     req.Block,
 							Timestamp: req.Timestamp,
 						},
-						Profile: profile,
+						Profile: id.Profile,
 					},
 				})
 			}
@@ -288,17 +294,17 @@ func main() {
 			})
 		}
 		data := map[string]interface{}{}
-		if profileJson, err := bapStorage.LoadProfile(c.Context(), bapId); err != nil {
+		if id, err := bapLookup.LoadIdentityById(c.Context(), bapId); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(Response{
 				Status:  "ERROR",
 				Message: err.Error(),
 			})
-		} else if profileJson == nil {
+		} else if len(id.Profile) == 0 {
 			return c.Status(fiber.StatusNotFound).JSON(Response{
 				Status:  "ERROR",
 				Message: fmt.Sprintf("Profile not found for BAPID %s", bapId),
 			})
-		} else if err := json.Unmarshal(profileJson, &data); err != nil {
+		} else if err := json.Unmarshal(id.Profile, &data); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(Response{
 				Status:  "ERROR",
 				Message: fmt.Sprintf("Failed to parse profile for BAPID %s: %v", bapId, err),
@@ -456,7 +462,7 @@ func main() {
 		offset := c.QueryInt("offset", 0) // Default offset is 0
 		limit := c.QueryInt("limit", 20)  // Set a default limit
 
-		if profiles, err := bapStorage.LoadProfiles(c.Context(), limit, offset); err != nil {
+		if profiles, err := bapLookup.LoadProfiles(c.Context(), limit, offset); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(Response{
 				Status:  "ERROR",
 				Message: "Failed to fetch profiles: " + err.Error(),
@@ -472,7 +478,7 @@ func main() {
 
 	httpServer.Router.Get("/profile/:bapId", func(c *fiber.Ctx) error {
 		bapId := c.Params("bapId")
-		if profile, err := bapStorage.LoadProfile(c.Context(), bapId); err != nil {
+		if identity, err := bapLookup.LoadIdentityById(c.Context(), bapId); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(Response{
 				Status:  "ERROR",
 				Message: "Failed to fetch profiles: " + err.Error(),
@@ -481,7 +487,7 @@ func main() {
 			// Return the list of profiles
 			return c.JSON(Response{
 				Status: "OK",
-				Result: profile,
+				Result: identity.Profile,
 			})
 		}
 	})
@@ -503,7 +509,7 @@ func main() {
 				Status:  "ERROR",
 				Message: "Invalid request body: " + err.Error(),
 			})
-		} else if id, err := bapStorage.LoadIdentityById(c.Context(), req["idKey"]); err != nil {
+		} else if id, err := bapLookup.LoadIdentityById(c.Context(), req["idKey"]); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(Response{
 				Status:  "ERROR",
 				Message: "Failed to fetch identity: " + err.Error(),
@@ -513,18 +519,12 @@ func main() {
 				Status:  "ERROR",
 				Message: "Identity not found for ID key: " + req["idKey"],
 			})
-		} else if err := bapStorage.PopulateAddressHeights(c.Context(), id); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(Response{
-				Status:  "ERROR",
-				Message: "Failed to populate address heights: " + err.Error(),
-			})
-		} else if profile, err := bapStorage.LoadProfile(c.Context(), id.IDKey); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(Response{
-				Status:  "ERROR",
-				Message: "Failed to fetch profile: " + err.Error(),
-			})
+			// } else if err := bapStorage.PopulateAddressHeights(c.Context(), id); err != nil {
+			// 	return c.Status(fiber.StatusInternalServerError).JSON(Response{
+			// 		Status:  "ERROR",
+			// 		Message: "Failed to populate address heights: " + err.Error(),
+			// 	})
 		} else {
-			id.Identity = profile
 			return c.JSON(Response{
 				Status: "OK",
 				Result: id,

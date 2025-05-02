@@ -20,34 +20,32 @@ type Address struct {
 }
 
 type Identity struct {
-	IDKey          string          `json:"idKey"`
-	FirstSeen      uint32          `json:"firstSeen"`
-	RootAddress    string          `json:"rootAddress"`
-	CurrentAddress string          `json:"currentAddress"`
-	Addresses      []Address       `json:"addresses"`
-	Identity       json.RawMessage `json:"identity,omitempty"`
+	BapId          string          `json:"idKey" bson:"_id"`
+	FirstSeen      uint32          `json:"firstSeen" bson:"firstSeen"`
+	FirstSeenTxid  chainhash.Hash  `json:"_" bson:"firstSeenTxid"`
+	RootAddress    string          `json:"rootAddress" bson:"rootAddress"`
+	CurrentAddress string          `json:"currentAddress" bson:"currentAddress"`
+	Addresses      []Address       `json:"addresses" bson:"addresses"`
+	Profile        json.RawMessage `json:"identity,omitempty" bson:"profile"`
 }
 
 type Signer struct {
-	IDKey     string         `json:"idKey"`
-	Address   string         `json:"signingAddress"`
-	Sequence  uint64         `json:"sequence"`
-	Block     uint32         `json:"block"`
-	Txid      chainhash.Hash `json:"txId"`
-	Timestamp uint32         `json:"timestamp"`
-	Revoked   bool           `json:"revoked"`
+	UrnHash   string         `json:"_" bson:"urnHash"`
+	BapID     string         `json:"idKey" bson:"idKey"`
+	Address   string         `json:"signingAddress" bson:"signingAddress"`
+	Sequence  uint64         `json:"sequence" bson:"sequence"`
+	Block     uint32         `json:"block" bson:"block"`
+	Txid      chainhash.Hash `json:"txId" bson:"txId"`
+	Timestamp uint32         `json:"timestamp" bson:"timestamp"`
+	Revoked   bool           `json:"revoked" bson:"revoked"`
 }
 
 type Attestation struct {
-	Id      string    `json:"hash"`
+	UrnHash string    `json:"hash"`
 	Signers []*Signer `json:"signers"`
-	// Attribute string    `json:"attribute,omitempty"`
-	// Value     string    `json:"value,omitempty"`
-	// Nonce     string    `json:"nonce,omitempty"`
-	// URN       string    `json:"urn,omitempty"`
 }
 
 type Profile struct {
-	IDKey string          `json:"_id"`
+	BapID string          `json:"_id"`
 	Data  json.RawMessage `json:"data"`
 }
