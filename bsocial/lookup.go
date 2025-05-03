@@ -25,8 +25,18 @@ func NewLookupService(connString string, dbName string) (*LookupService, error) 
 	if client, err := mongo.Connect(context.Background(), clientOptions); err != nil {
 		return nil, err
 	} else {
+		db := client.Database(dbName)
+		if _, err := db.Collection("post").Indexes().CreateMany(
+			context.Background(),
+			[]mongo.IndexModel{
+				{Keys: bson.M{"timestamp": -1}},
+				{Keys: bson.D{{"AIP.address", 1}, {"timestamp", -1}}},
+			},
+		); err != nil {
+			return nil, err
+		}
 		return &LookupService{
-			db: client.Database(dbName),
+			db: db,
 		}, nil
 	}
 }
