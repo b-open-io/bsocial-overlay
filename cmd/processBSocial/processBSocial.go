@@ -6,17 +6,24 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
+	"github.com/4chain-ag/go-overlay-services/pkg/core/engine"
 	"github.com/GorillaPool/go-junglebus"
 	"github.com/GorillaPool/go-junglebus/models"
+	"github.com/b-open-io/bsocial-overlay/bsocial"
+	"github.com/b-open-io/overlay/beef"
+	"github.com/b-open-io/overlay/storage"
+	"github.com/bsv-blockchain/go-sdk/chainhash"
+	"github.com/bsv-blockchain/go-sdk/overlay"
 	"github.com/bsv-blockchain/go-sdk/transaction/chaintracker/headers_client"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 )
 
-var CONCURRENCY = 16
+var CONCURRENCY = 1
 var TOPIC string
 var FROM_BLOCK uint
 var QUEUE = "bsocial"
@@ -68,35 +75,35 @@ func main() {
 		rdb = redis.NewClient(opts)
 	}
 	// Initialize storage
-	// beefStore, err := beef.NewMongoBeefStorage(os.Getenv("MONGO_URL"), "beef")
-	// if err != nil {
-	// 	log.Fatalf("Failed to initialize tx storage: %v", err)
-	// }
-	// store, err := storage.NewMongoStorage(os.Getenv("MONGO_URL"), "bsocial", beefStore)
-	// if err != nil {
-	// 	log.Fatalf("Failed to initialize storage: %v", err)
-	// }
-	// // defer store.Close()
-	// tm := "tm_bsocial"
+	beefStore, err := beef.NewMongoBeefStorage(os.Getenv("MONGO_URL"), "beef")
+	if err != nil {
+		log.Fatalf("Failed to initialize tx storage: %v", err)
+	}
+	store, err := storage.NewMongoStorage(os.Getenv("MONGO_URL"), "bsocial", beefStore)
+	if err != nil {
+		log.Fatalf("Failed to initialize storage: %v", err)
+	}
+	// defer store.Close()
+	tm := "tm_bsocial"
 
-	// lookupService, err := bsocial.NewLookupService(
-	// 	os.Getenv("MONGO_URL"),
-	// 	"bsocial",
-	// )
-	// if err != nil {
-	// 	log.Fatalf("Failed to initialize lookup service: %v", err)
-	// }
-	// e := engine.Engine{
-	// 	Managers: map[string]engine.TopicManager{
-	// 		tm: &bsocial.TopicManager{},
-	// 	},
-	// 	LookupServices: map[string]engine.LookupService{
-	// 		"ls_bsocial": lookupService,
-	// 	},
-	// 	Storage:      store,
-	// 	ChainTracker: chaintracker,
-	// 	PanicOnError: true,
-	// }
+	lookupService, err := bsocial.NewLookupService(
+		os.Getenv("MONGO_URL"),
+		"bsocial",
+	)
+	if err != nil {
+		log.Fatalf("Failed to initialize lookup service: %v", err)
+	}
+	e := engine.Engine{
+		Managers: map[string]engine.TopicManager{
+			tm: &bsocial.TopicManager{},
+		},
+		LookupServices: map[string]engine.LookupService{
+			"ls_bsocial": lookupService,
+		},
+		Storage:      store,
+		ChainTracker: chaintracker,
+		PanicOnError: true,
+	}
 
 	go func() {
 		if TOPIC == "" {
@@ -183,64 +190,64 @@ func main() {
 		}
 	}()
 
-	// limiter := make(chan struct{}, CONCURRENCY) // Limit concurrent processing to 100 transactions
-	// var wg sync.WaitGroup
+	limiter := make(chan struct{}, CONCURRENCY) // Limit concurrent processing to 100 transactions
+	var wg sync.WaitGroup
 	for {
-		// txids, err := rdb.ZRangeArgs(ctx, redis.ZRangeArgs{
-		// 	Key: QUEUE,
-		// 	// Start: 0,
-		// 	// Stop:  -1,
-		// 	Stop:    "+inf",
-		// 	Start:   "-inf",
-		// 	Rev:     true,
-		// 	ByScore: true,
-		// }).Result()
-		// if err != nil {
-		// 	log.Fatalf("Failed to query Redis: %v", err)
-		// }
+		txids, err := rdb.ZRangeArgs(ctx, redis.ZRangeArgs{
+			Key: QUEUE,
+			// Start: 0,
+			// Stop:  -1,
+			Stop:    "+inf",
+			Start:   "-inf",
+			Rev:     true,
+			ByScore: true,
+		}).Result()
+		if err != nil {
+			log.Fatalf("Failed to query Redis: %v", err)
+		}
 
-		// for _, txidStr := range txids {
-		// 	select {
-		// 	case <-ctx.Done():
-		// 		log.Println("Context canceled, stopping processing...")
-		// 		return
-		// 	default:
-		// 		wg.Add(1)
-		// 		limiter <- struct{}{} // Acquire a slot in the limiter
-		// 		go func(txidStr string) {
-		// 			defer wg.Done()
-		// 			defer func() { <-limiter }() // Release the slot in the limiter
-		// 			// log.Println("Processing transaction", txidStr)
-		// 			if txid, err := chainhash.NewHashFromHex(txidStr); err != nil {
-		// 				log.Fatalf("Invalid txid: %v", err)
-		// 			} else if beefBytes, err := beefStore.LoadBeef(ctx, txid); err != nil {
-		// 				log.Fatalf("Failed to load transaction: %v", err)
-		// 			} else {
-		// 				taggedBeef := overlay.TaggedBEEF{
-		// 					Beef:   beefBytes,
-		// 					Topics: []string{tm},
-		// 				}
-		// 				logTime := time.Now()
-		// 				if admit, err := e.Submit(ctx, taggedBeef, engine.SubmitModeHistorical, nil); err != nil {
-		// 					log.Fatalf("Failed to submit transaction: %v", err)
-		// 				} else {
-		// 					if err := rdb.ZRem(ctx, QUEUE, txidStr).Err(); err != nil {
-		// 						log.Fatalf("Failed to delete from queue: %v", err)
-		// 					}
-		// 					log.Println("Processed", txid, "in", time.Since(logTime), "as", admit[tm].OutputsToAdmit)
-		// 					done <- &txSummary{
-		// 						tx:  1,
-		// 						out: len(admit[tm].OutputsToAdmit),
-		// 					}
-		// 				}
-		// 			}
-		// 		}(txidStr)
-		// 	}
-		// }
-		// wg.Wait()
-		// if len(txids) == 0 {
-		log.Println("No transactions to process, waiting for 10 seconds...")
-		time.Sleep(10 * time.Second)
-		// }
+		for _, txidStr := range txids {
+			select {
+			case <-ctx.Done():
+				log.Println("Context canceled, stopping processing...")
+				return
+			default:
+				wg.Add(1)
+				limiter <- struct{}{} // Acquire a slot in the limiter
+				go func(txidStr string) {
+					defer wg.Done()
+					defer func() { <-limiter }() // Release the slot in the limiter
+					// log.Println("Processing transaction", txidStr)
+					if txid, err := chainhash.NewHashFromHex(txidStr); err != nil {
+						log.Fatalf("Invalid txid: %v", err)
+					} else if beefBytes, err := beefStore.LoadBeef(ctx, txid); err != nil {
+						log.Fatalf("Failed to load transaction: %v", err)
+					} else {
+						taggedBeef := overlay.TaggedBEEF{
+							Beef:   beefBytes,
+							Topics: []string{tm},
+						}
+						logTime := time.Now()
+						if admit, err := e.Submit(ctx, taggedBeef, engine.SubmitModeHistorical, nil); err != nil {
+							log.Fatalf("Failed to submit transaction: %v", err)
+						} else {
+							if err := rdb.ZRem(ctx, QUEUE, txidStr).Err(); err != nil {
+								log.Fatalf("Failed to delete from queue: %v", err)
+							}
+							log.Println("Processed", txid, "in", time.Since(logTime), "as", admit[tm].OutputsToAdmit)
+							done <- &txSummary{
+								tx:  1,
+								out: len(admit[tm].OutputsToAdmit),
+							}
+						}
+					}
+				}(txidStr)
+			}
+		}
+		wg.Wait()
+		if len(txids) == 0 {
+			log.Println("No transactions to process, waiting for 10 seconds...")
+			time.Sleep(10 * time.Second)
+		}
 	}
 }

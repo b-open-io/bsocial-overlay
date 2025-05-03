@@ -2,9 +2,7 @@ package bsocial
 
 import (
 	"context"
-	"fmt"
 	"log"
-	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -135,28 +133,22 @@ func PrepareForIngestion(bmapData *bmap.Tx) (bsonData bson.M, err error) {
 		bsonData["Ord"] = bmapData.Ord
 	}
 
-	if bmapData.B != nil {
-		for _, b := range bmapData.B {
-			// remove the data if its not a message
-			var removeData = true
-			// only if this is a bitcoinschema type, do we keep the data
-			// TODO: Allow user to select the types they want to index fully
-			if len(bmapData.MAP) > 0 && bmapData.MAP[0]["type"] != nil {
-				if slices.Contains(strings.Split(OutputTypes, ","), fmt.Sprintf("%v", bmapData.MAP[0]["type"])) {
-					removeData = false
-				}
-			}
-			if removeData {
-				b.Data = nil
-			} else if len(b.Data) > 0 {
-				b.Data = nil
-			}
-			if len(b.MediaType) > 255 {
-				b.MediaType = b.MediaType[:255]
+	if len(bmapData.B) > 0 {
+		b := map[string]any{
+			"content-type": bmapData.B[0].MediaType,
+			"encoding":     bmapData.B[0].Encoding,
+			"filename":     bmapData.B[0].Filename,
+		}
+
+		if strings.HasPrefix(bmapData.B[0].MediaType, "text") {
+			if len(bmapData.B[0].Data) > 256*1024 {
+				b["content"] = string(bmapData.B[0].Data[:256*1024])
+			} else {
+				b["content"] = string(bmapData.B[0].Data)
 			}
 		}
 
-		bsonData["B"] = bmapData.B
+		bsonData["B"] = b
 	}
 
 	if bmapData.BOOST != nil {
