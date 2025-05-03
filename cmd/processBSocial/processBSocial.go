@@ -201,6 +201,7 @@ func main() {
 			Start:   "-inf",
 			Rev:     true,
 			ByScore: true,
+			Count:   1000, // Fetch up to 1000 transactions at a time
 		}).Result()
 		if err != nil {
 			log.Fatalf("Failed to query Redis: %v", err)
