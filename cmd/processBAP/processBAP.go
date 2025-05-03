@@ -213,19 +213,17 @@ func main() {
 					log.Fatalf("Invalid txid: %v", err)
 				} else if beefBytes, err := beefStore.LoadBeef(ctx, txid); err != nil {
 					log.Fatalf("Failed to load transaction: %v", err)
-				} else if tx, err := transaction.NewTransactionFromBEEF(beefBytes); err != nil {
+				} else if beef, tx, _, err := transaction.ParseBeef(beefBytes); err != nil {
 					log.Fatalf("Failed to parse transaction: %v", err)
-				} else if tx == nil {
-					beef := transaction.NewBeefV2()
+				} else {
 					for _, input := range tx.Inputs {
 						if inputBeef, err := beefStore.LoadBeef(ctx, input.SourceTXID); err != nil {
 							log.Fatalf("Failed to load input transaction: %v", err)
-						} else if err := beef.MergeBeefBytes(inputBeef); err != nil {
+						} else if inputBeef, _, _, err := transaction.ParseBeef(inputBeef); err != nil {
+							log.Fatalf("Failed to parse transaction: %v", err)
+						} else if err := beef.MergeBeef(inputBeef); err != nil {
 							log.Fatalf("Failed to merge source transaction: %v", err)
 						}
-					}
-					if _, err := beef.MergeTransaction(tx); err != nil {
-						log.Fatalf("Failed to merge source transaction: %v", err)
 					}
 
 					taggedBeef := overlay.TaggedBEEF{
