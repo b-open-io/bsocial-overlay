@@ -190,6 +190,7 @@ func main() {
 		}
 	}()
 
+	log.Println("Starting transaction processing...")
 	for {
 		txids, err := rdb.ZRangeArgs(ctx, redis.ZRangeArgs{
 			Key:     QUEUE,
@@ -200,6 +201,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to query Redis: %v", err)
 		}
+		log.Println("Found", len(txids), "transactions in queue")
 
 		for _, txidStr := range txids {
 			select {
