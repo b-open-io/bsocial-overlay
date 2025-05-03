@@ -107,11 +107,22 @@ func PrepareForIngestion(bmapData *bmap.Tx) (bsonData bson.M, err error) {
 		"out": bmapData.Tx.Out,
 	}
 
-	if bmapData.AIP != nil {
-		bsonData["AIP"] = bmapData.AIP
+	if len(bmapData.AIP) > 0 {
+		// bsonData["AIP"] = bmapData.AIP
+		aips := make([]bson.M, len(bmapData.AIP))
+		for i, a := range bmapData.AIP {
+			aips[i] = bson.M{
+				"algorithm": a.Algorithm,
+				"address":   a.AlgorithmSigningComponent,
+				"data":      a.Data,
+				"indices":   a.Indices,
+				"signature": a.Signature,
+			}
+		}
+		bsonData["AIP"] = aips
 	}
 
-	if bmapData.AIP != nil {
+	if len(bmapData.Sigma) > 0 {
 		bsonData["SIGMA"] = bmapData.Sigma
 	}
 
