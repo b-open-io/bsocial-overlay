@@ -130,7 +130,6 @@ func PrepareForIngestion(bmapData *bmap.Tx) (bsonData bson.M, err error) {
 			aips[i] = bson.M{
 				"algorithm": a.Algorithm,
 				"address":   a.AlgorithmSigningComponent,
-				"data":      a.Data,
 				"indices":   a.Indices,
 				"signature": a.Signature,
 			}
@@ -160,23 +159,24 @@ func PrepareForIngestion(bmapData *bmap.Tx) (bsonData bson.M, err error) {
 		bsonData["Ord"] = bmapData.Ord
 	}
 
-	if len(bmapData.B) > 0 {
-		b := map[string]any{
-			"content-type": bmapData.B[0].MediaType,
-			"encoding":     bmapData.B[0].Encoding,
-			"filename":     bmapData.B[0].Filename,
+	bs := []bson.M{}
+	for _, b := range bmapData.B {
+		item := bson.M{
+			"content-type": b.MediaType,
+			"encoding":     b.Encoding,
+			"filename":     b.Filename,
 		}
 
-		if strings.HasPrefix(bmapData.B[0].MediaType, "text") {
-			if len(bmapData.B[0].Data) > 256*1024 {
-				b["content"] = string(bmapData.B[0].Data[:256*1024])
+		if strings.HasPrefix(b.MediaType, "text") {
+			if len(b.Data) > 256*1024 {
+				item["content"] = string(b.Data[:256*1024])
 			} else {
-				b["content"] = string(bmapData.B[0].Data)
+				item["content"] = string(b.Data)
 			}
 		}
-
-		bsonData["B"] = b
+		bs = append(bs, item)
 	}
+	bsonData["B"] = bs
 
 	if bmapData.BOOST != nil {
 		bsonData["BOOST"] = bmapData.BOOST
