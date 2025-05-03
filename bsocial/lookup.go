@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/bitcoinschema/go-bmap"
@@ -55,7 +56,12 @@ func (l *LookupService) OutputAdded(ctx context.Context, outpoint *overlay.Outpo
 	_, err = collection.UpdateOne(
 		ctx,
 		bson.M{"_id": bsonData["_id"]},
-		bson.M{"$set": bsonData},
+		bson.M{
+			"$set": bsonData,
+			"$setOnInsert": bson.M{
+				"timestamp": time.Now().UnixMilli(),
+			},
+		},
 		options.Update().SetUpsert(true),
 	)
 	return err
