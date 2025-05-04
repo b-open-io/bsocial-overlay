@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -293,22 +292,19 @@ func main() {
 				Message: "BAPID is required",
 			})
 		}
-		data := map[string]interface{}{}
+		var data map[string]any
 		if id, err := bapLookup.LoadIdentityById(c.Context(), bapId); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(Response{
 				Status:  "ERROR",
 				Message: err.Error(),
 			})
-		} else if id == nil || len(id.Profile) == 0 {
+		} else if id == nil || id.Profile == nil {
 			return c.Status(fiber.StatusNotFound).JSON(Response{
 				Status:  "ERROR",
 				Message: fmt.Sprintf("Profile not found for BAPID %s", bapId),
 			})
-		} else if err := json.Unmarshal(id.Profile, &data); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(Response{
-				Status:  "ERROR",
-				Message: fmt.Sprintf("Failed to parse profile for BAPID %s: %v", bapId, err),
-			})
+		} else {
+			data = id.Profile
 		}
 
 		// // if bap ID
