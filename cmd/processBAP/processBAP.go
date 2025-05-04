@@ -11,6 +11,7 @@ import (
 
 	"github.com/4chain-ag/go-overlay-services/pkg/core/engine"
 	"github.com/GorillaPool/go-junglebus"
+	"github.com/GorillaPool/go-junglebus/models"
 	"github.com/b-open-io/bsocial-overlay/bap"
 	"github.com/b-open-io/overlay/beef"
 	"github.com/b-open-io/overlay/storage"
@@ -104,64 +105,64 @@ func main() {
 		PanicOnError: true,
 	}
 
-	// go func() {
-	// 	if TOPIC == "" {
-	// 		return
-	// 	}
-	// 	txcount := 0
-	// 	var err error
-	// 	fromBlock := uint64(FROM_BLOCK)
-	// 	fromPage := uint64(0)
-	// 	if progress, err := rdb.HGet(ctx, "progress", TOPIC).Int(); err == nil {
-	// 		fromBlock = uint64(progress)
-	// 		log.Println("Resuming from block", fromBlock)
-	// 	}
+	go func() {
+		if TOPIC == "" {
+			return
+		}
+		txcount := 0
+		var err error
+		fromBlock := uint64(FROM_BLOCK)
+		fromPage := uint64(0)
+		if progress, err := rdb.HGet(ctx, "progress", TOPIC).Int(); err == nil {
+			fromBlock = uint64(progress)
+			log.Println("Resuming from block", fromBlock)
+		}
 
-	// 	log.Println("Subscribing to Junglebus from block", fromBlock, fromPage)
-	// 	if _, err = jb.SubscribeWithQueue(ctx,
-	// 		TOPIC,
-	// 		fromBlock,
-	// 		fromPage,
-	// 		junglebus.EventHandler{
-	// 			OnTransaction: func(txn *models.TransactionResponse) {
-	// 				txcount++
-	// 				log.Printf("[TX]: %d - %d: %d %s\n", txn.BlockHeight, txn.BlockIndex, len(txn.Transaction), txn.Id)
-	// 				if err := rdb.ZAdd(ctx, QUEUE, redis.Z{
-	// 					Member: txn.Id,
-	// 					Score:  float64(txn.BlockHeight)*1e9 + float64(txn.BlockIndex),
-	// 				}).Err(); err != nil {
-	// 					log.Panic(err)
-	// 				}
-	// 			},
-	// 			OnStatus: func(status *models.ControlResponse) {
-	// 				log.Printf("[STATUS]: %d %v %d processed\n", status.StatusCode, status.Message, txcount)
-	// 				switch status.StatusCode {
-	// 				case 200:
-	// 					if err := rdb.HSet(ctx, "progress", TOPIC, status.Block+1).Err(); err != nil {
-	// 						log.Panic(err)
-	// 					}
-	// 					txcount = 0
-	// 				case 999:
-	// 					log.Println(status.Message)
-	// 					cancel()
-	// 					return
-	// 				}
-	// 			},
-	// 			OnError: func(err error) {
-	// 				log.Printf("[ERROR]: %v\n", err)
-	// 				cancel()
-	// 			},
-	// 		},
-	// 		&junglebus.SubscribeOptions{
-	// 			QueueSize: 10000000,
-	// 			LiteMode:  true,
-	// 		},
-	// 	); err != nil {
-	// 		log.Printf("[ERROR]: %v\n", err)
-	// 		cancel()
-	// 	}
-	// 	<-ctx.Done()
-	// }()
+		log.Println("Subscribing to Junglebus from block", fromBlock, fromPage)
+		if _, err = jb.SubscribeWithQueue(ctx,
+			TOPIC,
+			fromBlock,
+			fromPage,
+			junglebus.EventHandler{
+				OnTransaction: func(txn *models.TransactionResponse) {
+					txcount++
+					log.Printf("[TX]: %d - %d: %d %s\n", txn.BlockHeight, txn.BlockIndex, len(txn.Transaction), txn.Id)
+					if err := rdb.ZAdd(ctx, QUEUE, redis.Z{
+						Member: txn.Id,
+						Score:  float64(txn.BlockHeight)*1e9 + float64(txn.BlockIndex),
+					}).Err(); err != nil {
+						log.Panic(err)
+					}
+				},
+				OnStatus: func(status *models.ControlResponse) {
+					log.Printf("[STATUS]: %d %v %d processed\n", status.StatusCode, status.Message, txcount)
+					switch status.StatusCode {
+					case 200:
+						if err := rdb.HSet(ctx, "progress", TOPIC, status.Block+1).Err(); err != nil {
+							log.Panic(err)
+						}
+						txcount = 0
+					case 999:
+						log.Println(status.Message)
+						cancel()
+						return
+					}
+				},
+				OnError: func(err error) {
+					log.Printf("[ERROR]: %v\n", err)
+					cancel()
+				},
+			},
+			&junglebus.SubscribeOptions{
+				QueueSize: 10000000,
+				LiteMode:  true,
+			},
+		); err != nil {
+			log.Printf("[ERROR]: %v\n", err)
+			cancel()
+		}
+		<-ctx.Done()
+	}()
 
 	done := make(chan *txSummary, 1000)
 	go func() {
