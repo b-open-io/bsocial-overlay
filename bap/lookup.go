@@ -238,9 +238,13 @@ func (l *LookupService) DeleteAttestation(ctx context.Context, signer *Signer) e
 }
 
 func (l *LookupService) SaveProfile(ctx context.Context, bapId string, profile json.RawMessage) error {
+	p := bson.M{}
+	if err := json.Unmarshal(profile, &p); err != nil {
+		return fmt.Errorf("failed to unmarshal profile: %w", err)
+	}
 	_, err := l.db.Collection("identities").UpdateOne(ctx,
 		bson.M{"_id": bapId},
-		bson.M{"$set": bson.M{"profile": profile}},
+		bson.M{"$set": bson.M{"profile": p}},
 	)
 	return err
 }

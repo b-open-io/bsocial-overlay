@@ -20,13 +20,13 @@ type Address struct {
 }
 
 type Identity struct {
-	BapId          string          `json:"idKey" bson:"_id"`
-	FirstSeen      uint32          `json:"firstSeen" bson:"firstSeen"`
-	FirstSeenTxid  chainhash.Hash  `json:"_" bson:"firstSeenTxid"`
-	RootAddress    string          `json:"rootAddress" bson:"rootAddress"`
-	CurrentAddress string          `json:"currentAddress" bson:"currentAddress"`
-	Addresses      []Address       `json:"addresses" bson:"addresses"`
-	Profile        json.RawMessage `json:"identity,omitempty" bson:"profile"`
+	BapId          string         `json:"idKey" bson:"_id"`
+	FirstSeen      uint32         `json:"firstSeen" bson:"firstSeen"`
+	FirstSeenTxid  chainhash.Hash `json:"_" bson:"firstSeenTxid"`
+	RootAddress    string         `json:"rootAddress" bson:"rootAddress"`
+	CurrentAddress string         `json:"currentAddress" bson:"currentAddress"`
+	Addresses      []Address      `json:"addresses" bson:"addresses"`
+	Profile        map[string]any `json:"identity,omitempty" bson:"profile"`
 }
 
 type Signer struct {
