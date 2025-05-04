@@ -73,7 +73,7 @@ func main() {
 		rdb = redis.NewClient(opts)
 	}
 	// Initialize storage
-	beefStore, err := beef.NewMongoBeefStorage(os.Getenv("MONGO_URL"), "beef")
+	beefStore, err := beef.NewRedisBeefStorage(os.Getenv("REDIS_BEEF"), time.Hour*24*5)
 	if err != nil {
 		log.Fatalf("Failed to initialize tx storage: %v", err)
 	}
@@ -208,6 +208,7 @@ func main() {
 				log.Println("Context canceled, stopping processing...")
 				return
 			default:
+				startTime := time.Now()
 				if txid, err := chainhash.NewHashFromHex(txidStr); err != nil {
 					log.Fatalf("Invalid txid: %v", err)
 				} else if beefBytes, err := beefStore.LoadBeef(ctx, txid); err != nil {
@@ -228,7 +229,8 @@ func main() {
 					taggedBeef := overlay.TaggedBEEF{
 						Topics: []string{tm},
 					}
-					logTime := time.Now()
+					log.Println(txidStr, "Loaded in", time.Since(startTime))
+
 					if taggedBeef.Beef, err = beef.AtomicBytes(txid); err != nil {
 						log.Fatalf("Failed to generate BEEF: %v", err)
 					} else if admit, err := e.Submit(ctx, taggedBeef, engine.SubmitModeHistorical, nil); err != nil {
@@ -237,7 +239,7 @@ func main() {
 						if err := rdb.ZRem(ctx, QUEUE, txidStr).Err(); err != nil {
 							log.Fatalf("Failed to delete from queue: %v", err)
 						}
-						log.Println("Processed", txid, "in", time.Since(logTime), "as", admit[tm].OutputsToAdmit)
+						log.Println("Processed", txid, "in", time.Since(startTime), "as", admit[tm].OutputsToAdmit)
 						done <- &txSummary{
 							tx:  1,
 							out: len(admit[tm].OutputsToAdmit),

@@ -75,7 +75,7 @@ func main() {
 		rdb = redis.NewClient(opts)
 	}
 	// Initialize storage
-	beefStore, err := beef.NewMongoBeefStorage(os.Getenv("MONGO_URL"), "beef")
+	beefStore, err := beef.NewRedisBeefStorage(os.Getenv("REDIS_BEEF"), time.Hour*24*5)
 	if err != nil {
 		log.Fatalf("Failed to initialize tx storage: %v", err)
 	}
