@@ -300,26 +300,26 @@ func (l *LookupService) Lookup(ctx context.Context, question *lookup.LookupQuest
 func (l *LookupService) Search(ctx context.Context, query string, limit int) ([]*Identity, error) {
 	// Implementation for searching identities based on a query using Atlas Search $search aggregation
 	pipeline := mongo.Pipeline{
-		bson.D{
-			{Key: "$search",
-				Value: bson.D{
-					{Key: "index", Value: "default"},
-					{Key: "text",
-						Value: bson.D{
-							{Key: "query", Value: "block"},
-							{Key: "path", Value: bson.D{{Key: "wildcard", Value: "*"}}},
-						},
-					},
-				},
-			},
-			bson.E{Key: "$limit", Value: limit},
+		{ // First stage: $search
+			bson.E{Key: "$search", Value: bson.D{
+				{Key: "index", Value: "default"}, // Replace with your Atlas Search index name if different
+				{Key: "wildcard", Value: bson.D{
+					{Key: "query", Value: fmt.Sprintf("*%s*", query)},           // Use the input query, wrapped with wildcards
+					{Key: "path", Value: bson.D{{Key: "wildcard", Value: "*"}}}, // Search across all fields
+					{Key: "allowAnalyzedField", Value: true},                    // Optional: Can improve performance if fields are analyzed
+				}},
+			}},
 		},
-		// Optional: Add other stages like $limit, $skip, $project if needed
-		// {{"$limit", 10}},
+		{ // Second stage: $limit
+			bson.E{Key: "$limit", Value: int64(limit)}, // Limit the number of results
+		},
+		// Optional: Add other stages like $skip, $project if needed
 	}
 
 	cursor, err := l.db.Collection("identities").Aggregate(ctx, pipeline)
 	if err != nil {
+		// Log the pipeline for debugging if needed
+		// log.Printf("Search pipeline: %+v\n", pipeline)
 		return nil, fmt.Errorf("failed to execute search aggregation: %w", err)
 	}
 	defer cursor.Close(ctx)
