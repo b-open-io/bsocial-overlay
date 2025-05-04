@@ -296,3 +296,38 @@ func (l *LookupService) Lookup(ctx context.Context, question *lookup.LookupQuest
 	// Implementation for looking up events based on the question
 	return nil, nil
 }
+
+func (l *LookupService) Search(ctx context.Context, query string, limit int) ([]*Identity, error) {
+	// Implementation for searching identities based on a query using Atlas Search $search aggregation
+	pipeline := mongo.Pipeline{
+		bson.D{
+			{Key: "$search",
+				Value: bson.D{
+					{Key: "index", Value: "default"},
+					{Key: "text",
+						Value: bson.D{
+							{Key: "query", Value: "block"},
+							{Key: "path", Value: bson.D{{Key: "wildcard", Value: "*"}}},
+						},
+					},
+				},
+			},
+			bson.E{Key: "$limit", Value: limit},
+		},
+		// Optional: Add other stages like $limit, $skip, $project if needed
+		// {{"$limit", 10}},
+	}
+
+	cursor, err := l.db.Collection("identities").Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute search aggregation: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var identities []*Identity
+	if err = cursor.All(ctx, &identities); err != nil {
+		return nil, fmt.Errorf("failed to decode search results: %w", err)
+	}
+
+	return identities, nil
+}

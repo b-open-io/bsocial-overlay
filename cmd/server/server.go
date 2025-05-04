@@ -164,6 +164,38 @@ func main() {
 		return c.SendString("Hello, World!")
 	})
 
+	httpServer.Router.Get("/autofill", func(c *fiber.Ctx) error {
+		q := c.Query("q")
+		if identities, err := bapLookup.Search(c.Context(), q, 3); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(Response{
+				Status:  "ERROR",
+				Message: "Failed to search identities: " + err.Error(),
+			})
+		} else {
+			// Return the list of identities
+			return c.JSON(Response{
+				Status: "OK",
+				Result: identities,
+			})
+		}
+	})
+
+	httpServer.Router.Get("/identity/search", func(c *fiber.Ctx) error {
+		q := c.Query("q")
+		if identities, err := bapLookup.Search(c.Context(), q, 3); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(Response{
+				Status:  "ERROR",
+				Message: "Failed to search identities: " + err.Error(),
+			})
+		} else {
+			// Return the list of identities
+			return c.JSON(Response{
+				Status: "OK",
+				Result: identities,
+			})
+		}
+	})
+
 	// @Summary Validate identity by address
 	// @Description Validates an identity at a specific block height or timestamp
 	// @Tags identity
