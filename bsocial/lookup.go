@@ -2,6 +2,7 @@ package bsocial
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -102,6 +103,44 @@ func (l *LookupService) GetMetaData() *overlay.MetaData {
 	return &overlay.MetaData{
 		Name: "Events",
 	}
+}
+
+func (l *LookupService) Search(ctx context.Context, query string, limit int, offset int) ([]map[string]any, error) {
+	// Implementation for searching identities based on a query using Atlas Search $search aggregation
+	pipeline := mongo.Pipeline{
+		{ // First stage: $search
+			bson.E{Key: "$search", Value: bson.D{
+				{Key: "index", Value: "default"}, // Replace with your Atlas Search index name if different
+				{Key: "wildcard", Value: bson.D{
+					{Key: "query", Value: fmt.Sprintf("*%s*", query)},           // Use the input query, wrapped with wildcards
+					{Key: "path", Value: bson.D{{Key: "wildcard", Value: "*"}}}, // Search across all fields
+					{Key: "allowAnalyzedField", Value: true},                    // Optional: Can improve performance if fields are analyzed
+				}},
+			}},
+		},
+		{ // Second stage: $skip
+			bson.E{Key: "$skip", Value: int64(offset)}, // Skip the specified number of documents
+		},
+		{ // Third stage: $limit
+			bson.E{Key: "$limit", Value: int64(limit)}, // Limit the number of results
+		},
+		// Optional: Add other stages like $project if needed
+	}
+
+	cursor, err := l.db.Collection("post").Aggregate(ctx, pipeline)
+	if err != nil {
+		// Log the pipeline for debugging if needed
+		// log.Printf("Search pipeline: %+v\n", pipeline)
+		return nil, fmt.Errorf("failed to execute search aggregation: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var identities []map[string]any
+	if err = cursor.All(ctx, &identities); err != nil {
+		return nil, fmt.Errorf("failed to decode search results: %w", err)
+	}
+
+	return identities, nil
 }
 
 func PrepareForIngestion(bmapData *bmap.Tx) (bsonData bson.M, err error) {
