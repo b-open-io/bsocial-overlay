@@ -182,7 +182,9 @@ func main() {
 
 	httpServer.Router.Get("/identity/search", func(c *fiber.Ctx) error {
 		q := c.Query("q")
-		if identities, err := bapLookup.Search(c.Context(), q, 3); err != nil {
+		limit := c.QueryInt("limit", 20)  // Default limit is 20
+		offset := c.QueryInt("offset", 0) // Default offset is 0
+		if identities, err := bapLookup.Search(c.Context(), q, limit, offset); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(Response{
 				Status:  "ERROR",
 				Message: "Failed to search identities: " + err.Error(),

@@ -297,7 +297,7 @@ func (l *LookupService) Lookup(ctx context.Context, question *lookup.LookupQuest
 	return nil, nil
 }
 
-func (l *LookupService) Search(ctx context.Context, query string, limit int) ([]*Identity, error) {
+func (l *LookupService) Search(ctx context.Context, query string, limit int, offset int) ([]*Identity, error) {
 	// Implementation for searching identities based on a query using Atlas Search $search aggregation
 	pipeline := mongo.Pipeline{
 		{ // First stage: $search
@@ -310,10 +310,13 @@ func (l *LookupService) Search(ctx context.Context, query string, limit int) ([]
 				}},
 			}},
 		},
-		{ // Second stage: $limit
+		{ // Second stage: $skip
+			bson.E{Key: "$skip", Value: int64(offset)}, // Skip the specified number of documents
+		},
+		{ // Third stage: $limit
 			bson.E{Key: "$limit", Value: int64(limit)}, // Limit the number of results
 		},
-		// Optional: Add other stages like $skip, $project if needed
+		// Optional: Add other stages like $project if needed
 	}
 
 	cursor, err := l.db.Collection("identities").Aggregate(ctx, pipeline)
