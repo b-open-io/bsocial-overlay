@@ -31,7 +31,8 @@ func NewLookupService(connString string, dbName string) (*LookupService, error) 
 			context.Background(),
 			[]mongo.IndexModel{
 				{Keys: bson.M{"timestamp": -1}},
-				{Keys: bson.D{{"AIP.address", 1}, {"timestamp", -1}}},
+				{Keys: bson.D{{Key: "AIP.address", Value: 1}, {Key: "timestamp", Value: -1}}, Options: options.Index().SetSparse(true)},
+				{Keys: bson.D{{Key: "MAP.tx", Value: 1}}, Options: options.Index().SetSparse(true)},
 			},
 		); err != nil {
 			return nil, err
