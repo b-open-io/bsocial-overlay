@@ -37,6 +37,16 @@ func NewLookupService(connString string, dbName string) (*LookupService, error) 
 		); err != nil {
 			return nil, err
 		}
+		if _, err := db.Collection("like").Indexes().CreateMany(
+			context.Background(),
+			[]mongo.IndexModel{
+				{Keys: bson.M{"timestamp": -1}},
+				{Keys: bson.D{{Key: "AIP.address", Value: 1}, {Key: "timestamp", Value: -1}}, Options: options.Index().SetSparse(true)},
+				{Keys: bson.D{{Key: "MAP.tx", Value: 1}, {Key: "timestamp", Value: -1}}, Options: options.Index().SetSparse(true)},
+			},
+		); err != nil {
+			return nil, err
+		}
 		return &LookupService{
 			db: db,
 		}, nil
