@@ -23,8 +23,8 @@ import (
 	"github.com/b-open-io/bsocial-overlay/bsocial"
 	"github.com/b-open-io/overlay/beef"
 	"github.com/b-open-io/overlay/storage"
-
-	// "github.com/b-open-io/overlay/util"
+	"github.com/bsv-blockchain/go-sdk/overlay"
+	"github.com/bsv-blockchain/go-sdk/transaction"
 	"github.com/bsv-blockchain/go-sdk/transaction/broadcaster"
 	"github.com/bsv-blockchain/go-sdk/transaction/chaintracker/headers_client"
 	"github.com/gofiber/fiber/v2"
@@ -204,6 +204,51 @@ func main() {
 				Status: "OK",
 				Result: identities,
 			})
+		}
+	})
+
+	httpServer.Router.Post("/ingest", func(c *fiber.Ctx) error {
+		if tx, err := transaction.NewTransactionFromBytes(c.Body()); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(Response{
+				Status:  "ERROR",
+				Message: "Invalid transaction data: " + err.Error(),
+			})
+		} else {
+			for _, input := range tx.Inputs {
+				if sourceBeef, err := beefStore.LoadBeef(c.Context(), input.SourceTXID); err != nil {
+					return c.Status(fiber.StatusNotFound).JSON(Response{
+						Status:  "ERROR",
+						Message: "Failed to load input transaction: " + err.Error(),
+					})
+				} else if input.SourceTransaction, err = transaction.NewTransactionFromBEEF(sourceBeef); err != nil {
+					return c.Status(fiber.StatusInternalServerError).JSON(Response{
+						Status:  "ERROR",
+						Message: "Failed to parse input transaction: " + err.Error(),
+					})
+				}
+			}
+			taggedBeef := overlay.TaggedBEEF{
+				Topics: []string{"tm_bap", "tm_bsocial"},
+			}
+
+			if taggedBeef.Beef, err = tx.AtomicBEEF(false); err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(Response{
+					Status:  "ERROR",
+					Message: "Failed to generate BEEF: " + err.Error(),
+				})
+			} else if _, err := e.Submit(ctx, taggedBeef, engine.SubmitModeHistorical, nil); err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(Response{
+					Status:  "ERROR",
+					Message: "Failed to submit transaction: " + err.Error(),
+				})
+			} else {
+				return c.JSON(Response{
+					Status: "OK",
+					Result: map[string]any{
+						"txid": tx.TxID().String(),
+					},
+				})
+			}
 		}
 	})
 
