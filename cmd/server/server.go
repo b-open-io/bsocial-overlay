@@ -164,49 +164,6 @@ func main() {
 		return c.SendString("Hello, World!")
 	})
 
-	httpServer.Router.Get("/autofill", func(c *fiber.Ctx) error {
-		q := c.Query("q")
-
-		if identities, err := bapLookup.Search(c.Context(), q, 3, 0); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(Response{
-				Status:  "ERROR",
-				Message: "Failed to search identities: " + err.Error(),
-			})
-		} else if posts, err := bsocialLookup.Search(c.Context(), q, 3, 0); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(Response{
-				Status:  "ERROR",
-				Message: "Failed to search posts: " + err.Error(),
-			})
-		} else {
-			// Return the list of identities
-			return c.JSON(Response{
-				Status: "OK",
-				Result: map[string]any{
-					"identities": identities,
-					"posts":      posts,
-				},
-			})
-		}
-	})
-
-	httpServer.Router.Get("/identity/search", func(c *fiber.Ctx) error {
-		q := c.Query("q")
-		limit := c.QueryInt("limit", 20)  // Default limit is 20
-		offset := c.QueryInt("offset", 0) // Default offset is 0
-		if identities, err := bapLookup.Search(c.Context(), q, limit, offset); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(Response{
-				Status:  "ERROR",
-				Message: "Failed to search identities: " + err.Error(),
-			})
-		} else {
-			// Return the list of identities
-			return c.JSON(Response{
-				Status: "OK",
-				Result: identities,
-			})
-		}
-	})
-
 	httpServer.Router.Post("/ingest", func(c *fiber.Ctx) error {
 		if tx, err := transaction.NewTransactionFromBytes(c.Body()); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(Response{
@@ -249,6 +206,49 @@ func main() {
 					},
 				})
 			}
+		}
+	})
+
+	httpServer.Router.Get("/autofill", func(c *fiber.Ctx) error {
+		q := c.Query("q")
+
+		if identities, err := bapLookup.Search(c.Context(), q, 3, 0); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(Response{
+				Status:  "ERROR",
+				Message: "Failed to search identities: " + err.Error(),
+			})
+		} else if posts, err := bsocialLookup.Search(c.Context(), q, 10, 0); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(Response{
+				Status:  "ERROR",
+				Message: "Failed to search posts: " + err.Error(),
+			})
+		} else {
+			// Return the list of identities
+			return c.JSON(Response{
+				Status: "OK",
+				Result: map[string]any{
+					"identities": identities,
+					"posts":      posts,
+				},
+			})
+		}
+	})
+
+	httpServer.Router.Get("/identity/search", func(c *fiber.Ctx) error {
+		q := c.Query("q")
+		limit := c.QueryInt("limit", 20)  // Default limit is 20
+		offset := c.QueryInt("offset", 0) // Default offset is 0
+		if identities, err := bapLookup.Search(c.Context(), q, limit, offset); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(Response{
+				Status:  "ERROR",
+				Message: "Failed to search identities: " + err.Error(),
+			})
+		} else {
+			// Return the list of identities
+			return c.JSON(Response{
+				Status: "OK",
+				Result: identities,
+			})
 		}
 	})
 
