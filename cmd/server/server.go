@@ -134,14 +134,19 @@ func main() {
 			"ls_bap":     bapLookup,
 			"ls_bsocial": bsocialLookup,
 		},
-		Storage:           bapStore,
-		ChainTracker:      chaintracker,
+		Storage:      bapStore,
+		ChainTracker: chaintracker,
 		SyncConfiguration: map[string]engine.SyncConfiguration{
-			// tm: {
-			// 	Type:        engine.SyncConfigurationPeers,
-			// 	Peers:       peers,
-			// 	Concurrency: 1,
-			// },
+			"tm_bap": {
+				Type:        engine.SyncConfigurationPeers,
+				Peers:       peers,
+				Concurrency: 1,
+			},
+			"tm_bsocial": {
+				Type:        engine.SyncConfigurationPeers,
+				Peers:       peers,
+				Concurrency: 16,
+			},
 		},
 		Broadcaster: &broadcaster.Arc{
 			ApiUrl:  "https://arc.taal.com/v1",
@@ -810,9 +815,9 @@ func main() {
 
 	if SYNC {
 		go func() {
-			if err := e.StartGASPSync(context.Background()); err != nil {
-				log.Fatalf("Error starting sync: %v", err)
-			}
+			// if err := e.StartGASPSync(context.Background()); err != nil {
+			// 	log.Fatalf("Error starting sync: %v", err)
+			// }
 
 			peers := make(map[string][]string)
 			for topic, syncConfig := range e.SyncConfiguration {
@@ -826,31 +831,48 @@ func main() {
 				}
 			}
 
+			log.Println("Peers to subscribe to:", peers)
+
+			if len(peers) == 0 {
+				return
+			}
 			for peer, topics := range peers {
 				go func(peer string) {
-					res, err := http.Get(fmt.Sprintf("%s/subscribe/%s", peer, strings.Join(topics, ",")))
-					// res, err := http.DefaultClient.Do(req)
-					if err != nil {
-						log.Println("Error subscribing to peer:", err)
-						return
-					}
-					defer res.Body.Close() // don't forget!!
-
-					for ev, err := range sse.Read(res.Body, nil) {
+					for {
+						start := time.Now()
+						url := fmt.Sprintf("%s/subscribe/%s", peer, strings.Join(topics, ","))
+						log.Println("Subscribing to peer:", url)
+						res, err := http.Get(fmt.Sprintf("%s/subscribe/%s", peer, strings.Join(topics, ",")))
+						// res, err := http.DefaultClient.Do(req)
 						if err != nil {
-							// handle read error
-							break // can end the loop as Read stops on first error anyway
+							log.Println("Error subscribing to peer:", err)
+							return
 						}
-						taggedBeef := overlay.TaggedBEEF{
-							Topics: []string{ev.Type},
+						defer res.Body.Close() // don't forget!!
+
+						for ev, err := range sse.Read(res.Body, nil) {
+							// log.Println("Received event:", ev)
+							if err != nil {
+								// handle read error
+								break // can end the loop as Read stops on first error anyway
+							}
+							taggedBeef := overlay.TaggedBEEF{
+								Topics: []string{ev.Type},
+							}
+							if taggedBeef.Beef, err = base64.StdEncoding.DecodeString(ev.Data); err != nil {
+								log.Println("Error decoding base64:", err)
+							} else if _, _, txid, err := transaction.ParseBeef(taggedBeef.Beef); err != nil {
+								log.Println("Error parsing BEEF:", err)
+							} else if steak, err := e.Submit(ctx, taggedBeef, engine.SubmitModeHistorical, nil); err != nil {
+								log.Println("Error submitting tagged BEEF:", err)
+							} else {
+								log.Println("Successfully submitted tagged BEEF:", txid.String(), steak[ev.Type].OutputsToAdmit)
+							}
 						}
-						if taggedBeef.Beef, err = base64.StdEncoding.DecodeString(ev.Data); err != nil {
-							log.Println("Error decoding base64:", err)
-						}
-						if steak, err := e.Submit(ctx, taggedBeef, engine.SubmitModeHistorical, nil); err != nil {
-							log.Println("Error submitting tagged BEEF:", err)
-						} else {
-							log.Println("Successfully submitted tagged BEEF:", steak)
+						res.Body.Close()
+						duration := time.Since(start)
+						if duration < 5*time.Second {
+							time.Sleep(5*time.Second - duration)
 						}
 					}
 				}(peer)
