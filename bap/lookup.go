@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/b-open-io/overlay/publish"
 	"github.com/bitcoin-sv/go-templates/template/bitcom"
 	"github.com/bsv-blockchain/go-sdk/overlay"
 	"github.com/bsv-blockchain/go-sdk/overlay/lookup"
@@ -16,16 +17,18 @@ import (
 )
 
 type LookupService struct {
-	db *mongo.Database
+	db  *mongo.Database
+	pub publish.Publisher
 }
 
-func NewLookupService(connString string, dbName string) (*LookupService, error) {
+func NewLookupService(connString string, dbName string, pub publish.Publisher) (*LookupService, error) {
 	if client, err := mongo.Connect(nil, options.Client().ApplyURI(connString)); err != nil {
 		return nil, err
 	} else {
 		db := client.Database(dbName)
 		return &LookupService{
-			db: db,
+			db:  db,
+			pub: pub,
 		}, nil
 	}
 }

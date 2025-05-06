@@ -8,6 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/b-open-io/overlay/publish"
 	"github.com/bitcoinschema/go-bmap"
 	"github.com/bsv-blockchain/go-sdk/overlay"
 	"github.com/bsv-blockchain/go-sdk/overlay/lookup"
@@ -18,10 +19,11 @@ import (
 )
 
 type LookupService struct {
-	db *mongo.Database
+	db  *mongo.Database
+	pub publish.Publisher
 }
 
-func NewLookupService(connString string, dbName string) (*LookupService, error) {
+func NewLookupService(connString string, dbName string, pub publish.Publisher) (*LookupService, error) {
 	clientOptions := options.Client().ApplyURI(connString).SetMaxPoolSize(100)
 	if client, err := mongo.Connect(context.Background(), clientOptions); err != nil {
 		return nil, err
@@ -48,7 +50,8 @@ func NewLookupService(connString string, dbName string) (*LookupService, error) 
 			return nil, err
 		}
 		return &LookupService{
-			db: db,
+			db:  db,
+			pub: pub,
 		}, nil
 	}
 }

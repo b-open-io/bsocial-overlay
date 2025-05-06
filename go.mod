@@ -13,6 +13,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/redis/go-redis/v9 v9.7.3
 	github.com/stretchr/testify v1.10.0
+	github.com/tmaxmax/go-sse v0.10.0
 	go.mongodb.org/mongo-driver v1.17.3
 	go.mongodb.org/mongo-driver/v2 v2.2.0
 )
@@ -83,6 +84,6 @@ replace github.com/bitcoin-sv/go-templates => github.com/b-open-io/go-templates 
 
 // replace github.com/bitcoin-sv/go-templates => ../go-templates
 
-replace github.com/b-open-io/overlay => github.com/b-open-io/overlay v0.0.0-20250504013812-8d9399365dd7
+replace github.com/b-open-io/overlay => github.com/b-open-io/overlay v0.0.0-20250506153828-06d77554ad0d
 
 // replace github.com/b-open-io/overlay => ../overlay

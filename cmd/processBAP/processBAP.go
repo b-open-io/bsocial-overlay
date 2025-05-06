@@ -14,6 +14,7 @@ import (
 	"github.com/GorillaPool/go-junglebus/models"
 	"github.com/b-open-io/bsocial-overlay/bap"
 	"github.com/b-open-io/overlay/beef"
+	"github.com/b-open-io/overlay/publish"
 	"github.com/b-open-io/overlay/storage"
 	"github.com/bsv-blockchain/go-sdk/chainhash"
 	"github.com/bsv-blockchain/go-sdk/overlay"
@@ -78,7 +79,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize tx storage: %v", err)
 	}
-	store, err := storage.NewMongoStorage(os.Getenv("MONGO_URL"), "bap", beefStore)
+	publisher, err := publish.NewRedisStorage(os.Getenv("REDIS"))
+	if err != nil {
+		log.Fatalf("Failed to initialize publisher: %v", err)
+	}
+	store, err := storage.NewMongoStorage(os.Getenv("MONGO_URL"), "bap", beefStore, publisher)
 	if err != nil {
 		log.Fatalf("Failed to initialize storage: %v", err)
 	}
@@ -87,6 +92,7 @@ func main() {
 	lookupService, err := bap.NewLookupService(
 		os.Getenv("MONGO_URL"),
 		"bap",
+		publisher,
 	)
 	if err != nil {
 		log.Fatalf("Failed to initialize lookup service: %v", err)

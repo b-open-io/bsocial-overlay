@@ -8,8 +8,8 @@ github.com/b-open-io/go-sdk v1.1.22-0.20250429153431-0a7620b47c68 h1:ohI5LomJdQR
 github.com/b-open-io/go-sdk v1.1.22-0.20250429153431-0a7620b47c68/go.mod h1:oM0t+xHwGxTLu5l5iUNceiv/MpQJXJdJKsFwpEgDVLI=
 github.com/b-open-io/go-templates v0.0.0-20250502204935-972b5d27541f h1:pX66RYzlr8RFUbEId+Y/ffRrgpsSi9VgbhZNCfjsXQM=
 github.com/b-open-io/go-templates v0.0.0-20250502204935-972b5d27541f/go.mod h1:WGRlHWaKtbWFThUTEYAH0JRORj686gWKutZr28AmSuU=
-github.com/b-open-io/overlay v0.0.0-20250504013812-8d9399365dd7 h1:S1G+s9DDEguH5BJxpmz2gNJ5vHgAk9KWVxSr7RY+fXE=
-github.com/b-open-io/overlay v0.0.0-20250504013812-8d9399365dd7/go.mod h1:xF7dMYKnIKM55Db++r9PVCO49IEZ8NMCDpjzyNveh8M=
+github.com/b-open-io/overlay v0.0.0-20250506153828-06d77554ad0d h1:Bt2iX9fX4pJKNb+CNcuEW6nQdlc8Ysz9bXvzl8Amx8w=
+github.com/b-open-io/overlay v0.0.0-20250506153828-06d77554ad0d/go.mod h1:xF7dMYKnIKM55Db++r9PVCO49IEZ8NMCDpjzyNveh8M=
 github.com/bitcoinschema/go-aip v0.3.3 h1:hTe9xbjVA6yGZgVjXdsdSprq9HEoZYMfNOXJBJlbE3E=
 github.com/bitcoinschema/go-aip v0.3.3/go.mod h1:Dw/AS97LfD8Jq4efsZAFG6gTZAVl3pp5yMDA5UmhhJY=
 github.com/bitcoinschema/go-b v0.2.3 h1:oq78sYf6GyKKZWOMrr7QXCT3xP3VjRUpL0ZFsvWm4wE=
@@ -105,6 +105,8 @@ github.com/stretchr/testify v1.10.0 h1:Xv5erBjTwe/5IxqUQTdXv5kgmIvbHo3QQyRwhJsOf
 github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/tinylib/msgp v1.2.5 h1:WeQg1whrXRFiZusidTQqzETkRpGjFjcIhW6uqWH09po=
 github.com/tinylib/msgp v1.2.5/go.mod h1:ykjzy2wzgrlvpDCRc4LA8UXy6D8bzMSuAF3WD57Gok0=
+github.com/tmaxmax/go-sse v0.10.0 h1:j9F93WB4Hxt8wUf6oGffMm4dutALvUPoDDxfuDQOSqA=
+github.com/tmaxmax/go-sse v0.10.0/go.mod h1:u/2kZQR1tyngo1lKaNCj1mJmhXGZWS1Zs5yiSOD+Eg8=
 github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6KllzawFIhcdPw=
 github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyCJ6HpOuEn7z0Csc=
 github.com/valyala/fasthttp v1.59.0 h1:Qu0qYHfXvPk1mSLNqcFtEk6DpxgA26hy6bmydotDpRI=

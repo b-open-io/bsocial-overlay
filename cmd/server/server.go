@@ -23,6 +23,7 @@ import (
 	"github.com/b-open-io/bsocial-overlay/bap"
 	"github.com/b-open-io/bsocial-overlay/bsocial"
 	"github.com/b-open-io/overlay/beef"
+	"github.com/b-open-io/overlay/publish"
 	"github.com/b-open-io/overlay/storage"
 	"github.com/bsv-blockchain/go-sdk/overlay"
 	"github.com/bsv-blockchain/go-sdk/transaction"
@@ -32,6 +33,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
+	"github.com/tmaxmax/go-sse"
 )
 
 var chaintracker headers_client.Client
@@ -94,7 +96,12 @@ func main() {
 		log.Fatalf("Failed to initialize tx storage: %v", err)
 	}
 
-	bapStore, err := storage.NewMongoStorage(os.Getenv("MONGO_URL"), "bap", beefStore)
+	publisher, err := publish.NewRedisStorage(os.Getenv("REDIS"))
+	if err != nil {
+		log.Fatalf("Failed to initialize publisher: %v", err)
+	}
+
+	bapStore, err := storage.NewMongoStorage(os.Getenv("MONGO_URL"), "bap", beefStore, publisher)
 	if err != nil {
 		log.Fatalf("Failed to initialize storage: %v", err)
 	}
@@ -102,6 +109,7 @@ func main() {
 	bapLookup, err := bap.NewLookupService(
 		os.Getenv("MONGO_URL"),
 		"bap",
+		publisher,
 	)
 	if err != nil {
 		log.Fatalf("Failed to initialize lookup service: %v", err)
@@ -109,6 +117,7 @@ func main() {
 	bsocialLookup, err := bsocial.NewLookupService(
 		os.Getenv("MONGO_URL"),
 		"bsocial",
+		publisher,
 	)
 	if err != nil {
 		log.Fatalf("Failed to initialize lookup service: %v", err)
@@ -745,6 +754,7 @@ func main() {
 				return
 
 			case msg := <-pubSubChan:
+				// log.Println("Received message:", msg.Channel, msg.Payload)
 				// Broadcast the message to all clients subscribed to the topic
 				if channels, exists := topicChannels[msg.Channel]; exists {
 					for _, channel := range channels {
@@ -753,7 +763,7 @@ func main() {
 				}
 
 			case subReq := <-subscribe:
-				// Add the client to the topicClients map
+				// log.Println("New subscription request:", subReq.topics)
 				for _, topic := range subReq.topics {
 					topicChannels[topic] = append(topicChannels[topic], subReq.msgChan)
 				}
@@ -803,29 +813,48 @@ func main() {
 			if err := e.StartGASPSync(context.Background()); err != nil {
 				log.Fatalf("Error starting sync: %v", err)
 			}
-			// for topic, syncConfig := range e.SyncConfiguration {
-			// 	if syncConfig.Type == engine.SyncConfigurationPeers {
-			// 		for _, peer := range syncConfig.Peers {
-			// 			go func(peer string) {
-			// 				req, _ := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/subscribe/%s", peer, topic))
-			// 				res, err := http.DefaultClient.Do(req)
-			// 				if err != nil {
-			// 					// handle error
-			// 				}
-			// 				defer res.Body.Close() // don't forget!!
 
-			// 				for ev, err := range sse.Read(res.Body, nil) {
-			// 					if err != nil {
-			// 						// handle read error
-			// 						break // can end the loop as Read stops on first error anyway
-			// 					}
-			// 					// Do something with the events, parse the JSON or whatever.
-			// 				}
-			// 			}(peer)
-			// 		}
-			// 	}
-			// }
+			peers := make(map[string][]string)
+			for topic, syncConfig := range e.SyncConfiguration {
+				if syncConfig.Type == engine.SyncConfigurationPeers {
+					for _, peer := range syncConfig.Peers {
+						if _, exists := peers[peer]; !exists {
+							peers[peer] = []string{}
+						}
+						peers[peer] = append(peers[peer], topic)
+					}
+				}
+			}
 
+			for peer, topics := range peers {
+				go func(peer string) {
+					res, err := http.Get(fmt.Sprintf("%s/subscribe/%s", peer, strings.Join(topics, ",")))
+					// res, err := http.DefaultClient.Do(req)
+					if err != nil {
+						log.Println("Error subscribing to peer:", err)
+						return
+					}
+					defer res.Body.Close() // don't forget!!
+
+					for ev, err := range sse.Read(res.Body, nil) {
+						if err != nil {
+							// handle read error
+							break // can end the loop as Read stops on first error anyway
+						}
+						taggedBeef := overlay.TaggedBEEF{
+							Topics: []string{ev.Type},
+						}
+						if taggedBeef.Beef, err = base64.StdEncoding.DecodeString(ev.Data); err != nil {
+							log.Println("Error decoding base64:", err)
+						}
+						if steak, err := e.Submit(ctx, taggedBeef, engine.SubmitModeHistorical, nil); err != nil {
+							log.Println("Error submitting tagged BEEF:", err)
+						} else {
+							log.Println("Successfully submitted tagged BEEF:", steak)
+						}
+					}
+				}(peer)
+			}
 		}()
 	}
 	// Start the server on the specified port
