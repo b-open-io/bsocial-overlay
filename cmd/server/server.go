@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -82,6 +83,11 @@ func main() {
 	// Channel to listen for OS signals
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+
+	var cache *redis.Client
+	if opts, err := redis.ParseURL(os.Getenv("REDIS")); err == nil {
+		cache = redis.NewClient(opts)
+	}
 
 	beefStore, err := beef.NewRedisBeefStorage(os.Getenv("REDIS_BEEF"), time.Hour*24*5)
 	if err != nil {
@@ -212,6 +218,17 @@ func main() {
 	httpServer.Router.Get("/autofill", func(c *fiber.Ctx) error {
 		q := c.Query("q")
 
+		if cache != nil {
+			if cached, err := cache.HGet(c.Context(), "autofill", q).Result(); err != nil {
+				log.Println("Cache error:", err)
+			} else if cached != "" {
+				return c.JSON(Response{
+					Status: "OK",
+					Result: json.RawMessage(cached),
+				})
+			}
+		}
+
 		if identities, err := bapLookup.Search(c.Context(), q, 3, 0); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(Response{
 				Status:  "ERROR",
@@ -223,14 +240,28 @@ func main() {
 				Message: "Failed to search posts: " + err.Error(),
 			})
 		} else {
-			// Return the list of identities
-			return c.JSON(Response{
-				Status: "OK",
-				Result: map[string]any{
-					"identities": identities,
-					"posts":      posts,
-				},
-			})
+
+			if result, err := json.Marshal(map[string]any{
+				"identities": identities,
+				"posts":      posts,
+			}); err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(Response{
+					Status:  "ERROR",
+					Message: "Failed to marshal result: " + err.Error(),
+				})
+			} else {
+				if cache != nil {
+					cache.Pipelined(c.Context(), func(pipe redis.Pipeliner) error {
+						pipe.HSet(c.Context(), "autofill", q, result)
+						pipe.HExpire(c.Context(), "autofill", 15*time.Minute, q)
+						return nil
+					})
+				}
+				return c.JSON(Response{
+					Status: "OK",
+					Result: json.RawMessage(result),
+				})
+			}
 		}
 	})
 
