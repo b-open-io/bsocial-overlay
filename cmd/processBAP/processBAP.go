@@ -18,7 +18,6 @@ import (
 	"github.com/b-open-io/overlay/storage"
 	"github.com/bsv-blockchain/go-sdk/chainhash"
 	"github.com/bsv-blockchain/go-sdk/overlay"
-	"github.com/bsv-blockchain/go-sdk/transaction"
 	"github.com/bsv-blockchain/go-sdk/transaction/chaintracker/headers_client"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
@@ -220,27 +219,13 @@ func main() {
 					log.Fatalf("Invalid txid: %v", err)
 				} else if beefBytes, err := beefStore.LoadBeef(ctx, txid); err != nil {
 					log.Fatalf("Failed to load transaction: %v", err)
-				} else if beef, tx, _, err := transaction.ParseBeef(beefBytes); err != nil {
-					log.Fatalf("Failed to parse transaction: %v", err)
 				} else {
-					for _, input := range tx.Inputs {
-						if inputBeef, err := beefStore.LoadBeef(ctx, input.SourceTXID); err != nil {
-							log.Fatalf("Failed to load input transaction: %v", err)
-						} else if inputBeef, _, _, err := transaction.ParseBeef(inputBeef); err != nil {
-							log.Fatalf("Failed to parse transaction: %v", err)
-						} else if err := beef.MergeBeef(inputBeef); err != nil {
-							log.Fatalf("Failed to merge source transaction: %v", err)
-						}
-					}
-
 					taggedBeef := overlay.TaggedBEEF{
 						Topics: []string{tm},
+						Beef:   beefBytes,
 					}
 					log.Println(txidStr, "Loaded in", time.Since(startTime))
-
-					if taggedBeef.Beef, err = beef.AtomicBytes(txid); err != nil {
-						log.Fatalf("Failed to generate BEEF: %v", err)
-					} else if admit, err := e.Submit(ctx, taggedBeef, engine.SubmitModeHistorical, nil); err != nil {
+					if admit, err := e.Submit(ctx, taggedBeef, engine.SubmitModeHistorical, nil); err != nil {
 						log.Fatalf("Failed to submit transaction: %v", err)
 					} else {
 						if err := rdb.ZRem(ctx, QUEUE, txidStr).Err(); err != nil {
