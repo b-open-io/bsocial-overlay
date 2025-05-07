@@ -76,17 +76,18 @@ func (l *LookupService) OutputAdded(ctx context.Context, outpoint *overlay.Outpo
 				Addresses: []Address{
 					{
 						Address: bap.Address,
-						Txid:    outpoint.Txid,
+						Txid:    outpoint.Txid.String(),
 						Block:   height,
 					},
 				},
-				FirstSeen: height,
+				FirstSeen:     height,
+				FirstSeenTxid: outpoint.Txid.String(),
 			}
 		} else {
 			id.CurrentAddress = aip.Address
 			id.Addresses = append(id.Addresses, Address{
 				Address: bap.Address,
-				Txid:    outpoint.Txid,
+				Txid:    outpoint.Txid.String(),
 				Block:   height,
 			})
 		}
@@ -101,7 +102,7 @@ func (l *LookupService) OutputAdded(ctx context.Context, outpoint *overlay.Outpo
 			BapID:   id.BapId,
 			UrnHash: bap.IDKey,
 			Address: aip.Address,
-			Txid:    outpoint.Txid,
+			Txid:    outpoint.Txid.String(),
 			Revoked: false,
 		}
 
