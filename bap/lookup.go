@@ -306,10 +306,10 @@ func (l *LookupService) Search(ctx context.Context, query string, limit int, off
 		{ // First stage: $search
 			bson.E{Key: "$search", Value: bson.D{
 				{Key: "index", Value: "default"}, // Replace with your Atlas Search index name if different
-				{Key: "wildcard", Value: bson.D{
-					{Key: "query", Value: fmt.Sprintf("*%s*", query)},           // Use the input query, wrapped with wildcards
+				{Key: "text", Value: bson.D{
+					{Key: "query", Value: query},                                // Use the input query, wrapped with wildcards
 					{Key: "path", Value: bson.D{{Key: "wildcard", Value: "*"}}}, // Search across all fields
-					{Key: "allowAnalyzedField", Value: true},                    // Optional: Can improve performance if fields are analyzed
+					// {Key: "allowAnalyzedField", Value: true},                    // Optional: Can improve performance if fields are analyzed
 				}},
 			}},
 		},
