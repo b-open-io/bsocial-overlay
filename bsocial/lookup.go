@@ -49,6 +49,24 @@ func NewLookupService(connString string, dbName string, pub publish.Publisher) (
 		); err != nil {
 			return nil, err
 		}
+		if _, err := db.Collection("follow").Indexes().CreateMany(
+			context.Background(),
+			[]mongo.IndexModel{
+				{Keys: bson.D{{Key: "AIP.address", Value: 1}, {Key: "blk.i", Value: 1}}, Options: options.Index().SetSparse(true)},
+				{Keys: bson.D{{Key: "MAP.idKey", Value: 1}, {Key: "blk.i", Value: 1}}, Options: options.Index().SetSparse(true)},
+			},
+		); err != nil {
+			return nil, err
+		}
+		if _, err := db.Collection("unfollow").Indexes().CreateMany(
+			context.Background(),
+			[]mongo.IndexModel{
+				{Keys: bson.D{{Key: "AIP.address", Value: 1}, {Key: "blk.i", Value: 1}}, Options: options.Index().SetSparse(true)},
+				{Keys: bson.D{{Key: "MAP.idKey", Value: 1}, {Key: "blk.i", Value: 1}}, Options: options.Index().SetSparse(true)},
+			},
+		); err != nil {
+			return nil, err
+		}
 		return &LookupService{
 			db:  db,
 			pub: pub,
