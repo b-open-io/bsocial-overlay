@@ -24,7 +24,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-var CONCURRENCY = 1
+var CONCURRENCY int
 var TOPIC string
 var FROM_BLOCK uint
 var QUEUE = "bsocial"
@@ -45,6 +45,7 @@ func init() {
 
 	flag.StringVar(&TOPIC, "t", os.Getenv("TOPIC"), "Junglebus SubscriptionID")
 	flag.UintVar(&FROM_BLOCK, "s", 575000, "Start from block")
+	flag.IntVar(&CONCURRENCY, "c", 1, "Concurrency")
 	flag.Parse()
 
 	var err error
