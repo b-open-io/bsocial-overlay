@@ -8,8 +8,10 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/4chain-ag/go-overlay-services/pkg/core/engine"
 	"github.com/b-open-io/overlay/publish"
 	"github.com/bitcoinschema/go-bmap"
+	"github.com/bsv-blockchain/go-sdk/chainhash"
 	"github.com/bsv-blockchain/go-sdk/overlay"
 	"github.com/bsv-blockchain/go-sdk/overlay/lookup"
 	"github.com/bsv-blockchain/go-sdk/transaction"
@@ -74,8 +76,9 @@ func NewLookupService(connString string, dbName string, pub publish.Publisher) (
 	}
 }
 
-func (l *LookupService) OutputAdded(ctx context.Context, outpoint *overlay.Outpoint, topic string, beef []byte) (err error) {
-	_, tx, _, err := transaction.ParseBeef(beef)
+// func (l *LookupService) OutputAdded(ctx context.Context, outpoint *overlay.Outpoint, topic string, beef []byte) (err error) {
+func (l *LookupService) OutputAdmittedByTopic(ctx context.Context, payload *engine.OutputAdmittedByTopic) error {
+	_, tx, _, err := transaction.ParseBeef(payload.AtomicBEEF)
 	if err != nil {
 		return err
 	}
@@ -92,7 +95,7 @@ func (l *LookupService) OutputAdded(ctx context.Context, outpoint *overlay.Outpo
 	var collectionName string
 	var ok bool
 	if collectionName, ok = bsonData["collection"].(string); !ok {
-		return
+		return nil
 	}
 	delete(bsonData, "collection")
 	collection := l.db.Collection(collectionName)
@@ -110,16 +113,20 @@ func (l *LookupService) OutputAdded(ctx context.Context, outpoint *overlay.Outpo
 	return err
 
 }
-func (l *LookupService) OutputSpent(ctx context.Context, outpoint *overlay.Outpoint, topic string, beef []byte) error {
-	// This function is intentionally left empty as the lookup service does not handle spent outputs.
+func (l *LookupService) OutputSpent(ctx context.Context, payload *engine.OutputSpent) error {
+	// Implementation for marking an output as spent
 	return nil
 }
-func (l *LookupService) OutputDeleted(ctx context.Context, outpoint *overlay.Outpoint, topic string) error {
-	// This function is intentionally left empty as the lookup service does not handle deleted outputs.
+func (l *LookupService) OutputNoLongerRetainedInHistory(ctx context.Context, outpoint *overlay.Outpoint, topic string) error {
+	// Implementation for deleting an output event
 	return nil
 }
-func (l *LookupService) OutputBlockHeightUpdated(ctx context.Context, outpoint *overlay.Outpoint, blockHeight uint32, blockIndex uint64) error {
-	// This function is intentionally left empty as the lookup service does not handle block height updates.
+func (l *LookupService) OutputEvicted(ctx context.Context, outpoint *overlay.Outpoint) error {
+	// Implementation for evicting an output
+	return nil
+}
+func (l *LookupService) OutputBlockHeightUpdated(ctx context.Context, txid *chainhash.Hash, blockHeight uint32, blockIndex uint64) error {
+	// Implementation for updating the block height of an output
 	return nil
 }
 func (l *LookupService) Lookup(ctx context.Context, question *lookup.LookupQuestion) (*lookup.LookupAnswer, error) {

@@ -1,6 +1,6 @@
 module github.com/b-open-io/bsocial-overlay
 
-go 1.24.2
+go 1.24.3
 
 require (
 	github.com/4chain-ag/go-overlay-services v0.0.0-00010101000000-000000000000
@@ -8,7 +8,7 @@ require (
 	github.com/b-open-io/overlay v0.0.0-20250409215804-0af5fcd6d003
 	github.com/bitcoin-sv/go-templates v0.0.0-00010101000000-000000000000
 	github.com/bitcoinschema/go-bmap v0.2.4
-	github.com/bsv-blockchain/go-sdk v1.1.22
+	github.com/bsv-blockchain/go-sdk v1.1.27
 	github.com/gofiber/fiber/v2 v2.52.6
 	github.com/joho/godotenv v1.5.1
 	github.com/redis/go-redis/v9 v9.7.3
@@ -63,7 +63,6 @@ require (
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
 	golang.org/x/crypto v0.37.0 // indirect
-	golang.org/x/exp v0.0.0-20220909182711-5c715a9e8561 // indirect
 	golang.org/x/sync v0.13.0 // indirect
 	golang.org/x/sys v0.32.0 // indirect
 	golang.org/x/term v0.31.0 // indirect
@@ -72,11 +71,11 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/4chain-ag/go-overlay-services => github.com/4chain-ag/go-overlay-services v0.1.1-0.20250502204850-eb5e5c08794f
+replace github.com/4chain-ag/go-overlay-services => github.com/4chain-ag/go-overlay-services v0.1.1-0.20250520171119-353d52f44efd
 
 // replace github.com/4chain-ag/go-overlay-services => ../go-overlay-services
 
-replace github.com/bsv-blockchain/go-sdk => github.com/b-open-io/go-sdk v1.1.22-0.20250429153431-0a7620b47c68
+replace github.com/bsv-blockchain/go-sdk => github.com/b-open-io/go-sdk v1.1.25-0.20250520163347-a6ea0e8b256c
 
 // replace github.com/bsv-blockchain/go-sdk => ../go-sdk
 
@@ -84,6 +83,8 @@ replace github.com/bitcoin-sv/go-templates => github.com/b-open-io/go-templates 
 
 // replace github.com/bitcoin-sv/go-templates => ../go-templates
 
-replace github.com/b-open-io/overlay => github.com/b-open-io/overlay v0.0.0-20250506153828-06d77554ad0d
+replace github.com/b-open-io/overlay => github.com/b-open-io/overlay v0.0.0-20250520172543-8e44c2116908
 
 // replace github.com/b-open-io/overlay => ../overlay
+
+replace github.com/bitcoinschema/go-bpu => github.com/bitcoinschema/go-bpu v0.2.3-0.20250520163642-056754e86b34

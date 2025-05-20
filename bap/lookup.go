@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/4chain-ag/go-overlay-services/pkg/core/engine"
 	"github.com/b-open-io/overlay/publish"
 	"github.com/bitcoin-sv/go-templates/template/bitcom"
+	"github.com/bsv-blockchain/go-sdk/chainhash"
 	"github.com/bsv-blockchain/go-sdk/overlay"
 	"github.com/bsv-blockchain/go-sdk/overlay/lookup"
 	"github.com/bsv-blockchain/go-sdk/transaction"
@@ -33,12 +35,13 @@ func NewLookupService(connString string, dbName string, pub publish.Publisher) (
 	}
 }
 
-func (l *LookupService) OutputAdded(ctx context.Context, outpoint *overlay.Outpoint, topic string, beef []byte) error {
-	_, tx, _, err := transaction.ParseBeef(beef)
+func (l *LookupService) OutputAdmittedByTopic(ctx context.Context, payload *engine.OutputAdmittedByTopic) error {
+	// OutputAdded(ctx context.Context, outpoint *overlay.Outpoint, topic string, beef []byte) error {
+	_, tx, _, err := transaction.ParseBeef(payload.AtomicBEEF)
 	if err != nil {
 		return err
 	}
-	output := tx.Outputs[outpoint.OutputIndex]
+	output := tx.Outputs[payload.Outpoint.OutputIndex]
 	bc := bitcom.Decode(output.LockingScript)
 	if bc == nil {
 		return nil
@@ -76,18 +79,18 @@ func (l *LookupService) OutputAdded(ctx context.Context, outpoint *overlay.Outpo
 				Addresses: []Address{
 					{
 						Address: bap.Address,
-						Txid:    outpoint.Txid.String(),
+						Txid:    payload.Outpoint.Txid.String(),
 						Block:   height,
 					},
 				},
 				FirstSeen:     height,
-				FirstSeenTxid: outpoint.Txid.String(),
+				FirstSeenTxid: payload.Outpoint.Txid.String(),
 			}
 		} else {
 			id.CurrentAddress = aip.Address
 			id.Addresses = append(id.Addresses, Address{
 				Address: bap.Address,
-				Txid:    outpoint.Txid.String(),
+				Txid:    payload.Outpoint.Txid.String(),
 				Block:   height,
 			})
 		}
@@ -102,7 +105,7 @@ func (l *LookupService) OutputAdded(ctx context.Context, outpoint *overlay.Outpo
 			BapID:   id.BapId,
 			UrnHash: bap.IDKey,
 			Address: aip.Address,
-			Txid:    outpoint.Txid.String(),
+			Txid:    payload.Outpoint.Txid.String(),
 			Revoked: false,
 		}
 
@@ -125,6 +128,27 @@ func (l *LookupService) OutputAdded(ctx context.Context, outpoint *overlay.Outpo
 		}
 	}
 	return nil
+}
+
+func (l *LookupService) OutputSpent(ctx context.Context, payload *engine.OutputSpent) error {
+	// Implementation for marking an output as spent
+	return nil
+}
+func (l *LookupService) OutputNoLongerRetainedInHistory(ctx context.Context, outpoint *overlay.Outpoint, topic string) error {
+	// Implementation for deleting an output event
+	return nil
+}
+func (l *LookupService) OutputEvicted(ctx context.Context, outpoint *overlay.Outpoint) error {
+	// Implementation for evicting an output
+	return nil
+}
+func (l *LookupService) OutputBlockHeightUpdated(ctx context.Context, txid *chainhash.Hash, blockHeight uint32, blockIndex uint64) error {
+	// Implementation for updating the block height of an output
+	return nil
+}
+func (l *LookupService) Lookup(ctx context.Context, question *lookup.LookupQuestion) (*lookup.LookupAnswer, error) {
+	// Implementation for looking up events based on the question
+	return nil, nil
 }
 
 func (l *LookupService) GetDocumentation() string {
@@ -282,23 +306,6 @@ func (l *LookupService) LoadProfiles(ctx context.Context, limit int, offset int)
 		}
 		return profiles, nil
 	}
-}
-
-func (l *LookupService) OutputSpent(ctx context.Context, outpoint *overlay.Outpoint, topic string, beef []byte) error {
-	// Implementation for marking an output as spent
-	return nil
-}
-func (l *LookupService) OutputDeleted(ctx context.Context, outpoint *overlay.Outpoint, topic string) error {
-	// Implementation for deleting an output event
-	return nil
-}
-func (l *LookupService) OutputBlockHeightUpdated(ctx context.Context, outpoint *overlay.Outpoint, blockHeight uint32, blockIndex uint64) error {
-	// Implementation for updating the block height of an output
-	return nil
-}
-func (l *LookupService) Lookup(ctx context.Context, question *lookup.LookupQuestion) (*lookup.LookupAnswer, error) {
-	// Implementation for looking up events based on the question
-	return nil, nil
 }
 
 func (l *LookupService) Search(ctx context.Context, query string, limit int, offset int) ([]*Identity, error) {
