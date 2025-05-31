@@ -96,7 +96,7 @@ func main() {
 		log.Fatalf("Failed to initialize tx storage: %v", err)
 	}
 
-	publisher, err := publish.NewRedisStorage(os.Getenv("REDIS"))
+	publisher, err := publish.NewRedisPublish(os.Getenv("REDIS"))
 	if err != nil {
 		log.Fatalf("Failed to initialize publisher: %v", err)
 	}
@@ -153,7 +153,6 @@ func main() {
 			WaitFor: broadcaster.ACCEPTED_BY_NETWORK,
 		},
 		HostingURL:   os.Getenv("HOSTING_URL"),
-		PanicOnError: true,
 	}
 
 	if currentBlock, err = chaintracker.GetChaintip(ctx); err != nil {

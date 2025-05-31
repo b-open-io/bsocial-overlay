@@ -16,7 +16,7 @@ type TopicManager struct {
 
 var mapTypes = []string{"post", "message", "like", "unlike", "follow", "unfollow", "friend", "unfriend", "repost", "tags"}
 
-func (tm *TopicManager) IdentifyAdmissableOutputs(ctx context.Context, beefBytes []byte, previousCoins map[uint32]*transaction.TransactionOutput) (admit overlay.AdmittanceInstructions, err error) {
+func (tm *TopicManager) IdentifyAdmissibleOutputs(ctx context.Context, beefBytes []byte, previousCoins map[uint32]*transaction.TransactionOutput) (admit overlay.AdmittanceInstructions, err error) {
 	_, tx, _, err := transaction.ParseBeef(beefBytes)
 	if err != nil {
 		return admit, err

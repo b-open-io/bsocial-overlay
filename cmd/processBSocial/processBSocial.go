@@ -81,7 +81,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize tx storage: %v", err)
 	}
-	publisher, err := publish.NewRedisStorage(os.Getenv("REDIS"))
+	publisher, err := publish.NewRedisPublish(os.Getenv("REDIS"))
 	if err != nil {
 		log.Fatalf("Failed to initialize publisher: %v", err)
 	}
@@ -109,7 +109,6 @@ func main() {
 		},
 		Storage:      store,
 		ChainTracker: chaintracker,
-		PanicOnError: true,
 	}
 
 	go func() {
