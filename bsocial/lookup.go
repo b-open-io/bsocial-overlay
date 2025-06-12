@@ -76,7 +76,7 @@ func NewLookupService(connString string, dbName string, pub publish.Publisher) (
 	}
 }
 
-// func (l *LookupService) OutputAdded(ctx context.Context, outpoint *overlay.Outpoint, topic string, beef []byte) (err error) {
+// func (l *LookupService) OutputAdded(ctx context.Context, outpoint *transaction.Outpoint, topic string, beef []byte) (err error) {
 func (l *LookupService) OutputAdmittedByTopic(ctx context.Context, payload *engine.OutputAdmittedByTopic) error {
 	_, tx, _, err := transaction.ParseBeef(payload.AtomicBEEF)
 	if err != nil {
@@ -117,11 +117,11 @@ func (l *LookupService) OutputSpent(ctx context.Context, payload *engine.OutputS
 	// Implementation for marking an output as spent
 	return nil
 }
-func (l *LookupService) OutputNoLongerRetainedInHistory(ctx context.Context, outpoint *overlay.Outpoint, topic string) error {
+func (l *LookupService) OutputNoLongerRetainedInHistory(ctx context.Context, outpoint *transaction.Outpoint, topic string) error {
 	// Implementation for deleting an output event
 	return nil
 }
-func (l *LookupService) OutputEvicted(ctx context.Context, outpoint *overlay.Outpoint) error {
+func (l *LookupService) OutputEvicted(ctx context.Context, outpoint *transaction.Outpoint) error {
 	// Implementation for evicting an output
 	return nil
 }

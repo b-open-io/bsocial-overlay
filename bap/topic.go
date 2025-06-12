@@ -62,7 +62,7 @@ func (tm *TopicManager) IdentifyAdmissibleOutputs(ctx context.Context, beefBytes
 	return
 }
 
-func (tm *TopicManager) IdentifyNeededInputs(ctx context.Context, beefBytes []byte) (neededInputs []*overlay.Outpoint, err error) {
+func (tm *TopicManager) IdentifyNeededInputs(ctx context.Context, beefBytes []byte) (neededInputs []*transaction.Outpoint, err error) {
 	return neededInputs, nil
 }
 
