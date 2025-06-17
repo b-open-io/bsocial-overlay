@@ -183,11 +183,7 @@ func main() {
 	)
 
 	// Register custom routes
-	httpServer.RegisterRoute("GET", "", func(c *fiber.Ctx) error {
-		return c.SendString("Hello, World!")
-	})
-
-	httpServer.RegisterRoute("POST", "/ingest", func(c *fiber.Ctx) error {
+	httpServer.RegisterRoute("POST", "/api/v1/ingest", func(c *fiber.Ctx) error {
 		if tx, err := transaction.NewTransactionFromBytes(c.Body()); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(Response{
 				Status:  "ERROR",
@@ -232,7 +228,7 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("GET", "/autofill", func(c *fiber.Ctx) error {
+	httpServer.RegisterRoute("GET", "/api/v1/autofill", func(c *fiber.Ctx) error {
 		q := c.Query("q")
 
 		if cache != nil {
@@ -282,7 +278,7 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("GET", "/identity/search", func(c *fiber.Ctx) error {
+	httpServer.RegisterRoute("GET", "/api/v1/identity/search", func(c *fiber.Ctx) error {
 		q := c.Query("q")
 		limit := c.QueryInt("limit", 20)  // Default limit is 20
 		offset := c.QueryInt("offset", 0) // Default offset is 0
@@ -300,7 +296,7 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("GET", "/post/search", func(c *fiber.Ctx) error {
+	httpServer.RegisterRoute("GET", "/api/v1/post/search", func(c *fiber.Ctx) error {
 		q := c.Query("q")
 		limit := c.QueryInt("limit", 20)  // Default limit is 20
 		offset := c.QueryInt("offset", 0) // Default offset is 0
@@ -318,7 +314,7 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("POST", "/identity/validByAddress", func(c *fiber.Ctx) error {
+	httpServer.RegisterRoute("POST", "/api/v1/identity/validByAddress", func(c *fiber.Ctx) error {
 		req := &IdentityValidByAddressParams{}
 		c.BodyParser(&req)
 		if req.Block == 0 && req.Timestamp == 0 {
@@ -409,7 +405,7 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("GET", "/person/:field/:bapId", func(c *fiber.Ctx) error {
+	httpServer.RegisterRoute("GET", "/api/v1/person/:field/:bapId", func(c *fiber.Ctx) error {
 		field := c.Params("field")
 		if field == "" {
 			return c.Status(fiber.StatusBadRequest).JSON(Response{
@@ -569,7 +565,7 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("GET", "/profile", func(c *fiber.Ctx) error {
+	httpServer.RegisterRoute("GET", "/api/v1/profile", func(c *fiber.Ctx) error {
 		// Default pagination parameters
 		offset := c.QueryInt("offset", 0) // Default offset is 0
 		limit := c.QueryInt("limit", 20)  // Set a default limit
@@ -588,7 +584,7 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("GET", "/profile/:bapId", func(c *fiber.Ctx) error {
+	httpServer.RegisterRoute("GET", "/api/v1/profile/:bapId", func(c *fiber.Ctx) error {
 		bapId := c.Params("bapId")
 		if identity, err := bapLookup.LoadIdentityById(c.Context(), bapId); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(Response{
@@ -604,7 +600,7 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("POST", "/identity/get", func(c *fiber.Ctx) error {
+	httpServer.RegisterRoute("POST", "/api/v1/identity/get", func(c *fiber.Ctx) error {
 		req := map[string]string{}
 		if err := c.BodyParser(&req); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(Response{
@@ -629,7 +625,7 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("GET", "/subscribe/:topics", func(c *fiber.Ctx) error {
+	httpServer.RegisterRoute("GET", "/api/v1/subscribe/:topics", func(c *fiber.Ctx) error {
 		topicsParam := c.Params("topics")
 		if topicsParam == "" {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
