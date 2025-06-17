@@ -13,7 +13,6 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/redis/go-redis/v9 v9.7.3
 	github.com/stretchr/testify v1.10.0
-	github.com/tmaxmax/go-sse v0.10.0
 	go.mongodb.org/mongo-driver v1.17.3
 	go.mongodb.org/mongo-driver/v2 v2.2.0
 )
@@ -37,10 +36,6 @@ require (
 	github.com/go-resty/resty/v2 v2.16.5 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/gookit/color v1.5.4 // indirect
-	github.com/gookit/goutil v0.6.18 // indirect
-	github.com/gookit/gsr v0.1.0 // indirect
-	github.com/gookit/slog v0.5.8 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
@@ -63,13 +58,11 @@ require (
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.2 // indirect
 	github.com/xdg-go/stringprep v1.0.4 // indirect
-	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
 	golang.org/x/crypto v0.39.0 // indirect
 	golang.org/x/net v0.40.0 // indirect
 	golang.org/x/sync v0.15.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
-	golang.org/x/term v0.32.0 // indirect
 	golang.org/x/text v0.26.0 // indirect
 	google.golang.org/protobuf v1.36.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
@@ -79,6 +72,8 @@ replace github.com/4chain-ag/go-overlay-services => github.com/4chain-ag/go-over
 
 replace github.com/bitcoin-sv/go-templates => github.com/b-open-io/go-templates v0.0.0-20250611003449-d3d47c4c4967
 
-replace github.com/b-open-io/overlay => github.com/b-open-io/overlay v0.0.0-20250612194658-07a25efa6d84
+replace github.com/b-open-io/overlay => github.com/b-open-io/overlay v0.0.0-20250617185305-0d785936d306
+
+// replace github.com/b-open-io/overlay => ../overlay
 
 replace github.com/bitcoinschema/go-bpu => github.com/bitcoinschema/go-bpu v0.2.3-0.20250520163642-056754e86b34

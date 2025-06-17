@@ -47,11 +47,11 @@ func (tm *TopicManager) IdentifyNeededInputs(ctx context.Context, beefBytes []by
 }
 
 func (tm *TopicManager) GetDocumentation() string {
-	return "BAP Topic Manager"
+	return "BSocial Topic Manager"
 }
 
 func (tm *TopicManager) GetMetaData() *overlay.MetaData {
 	return &overlay.MetaData{
-		Name: "bap",
+		Name: "bsocial",
 	}
 }
