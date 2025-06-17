@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/4chain-ag/go-overlay-services/pkg/core/engine"
-	"github.com/4chain-ag/go-overlay-services/pkg/server2"
+	"github.com/4chain-ag/go-overlay-services/pkg/server"
 	"github.com/b-open-io/bsocial-overlay/bap"
 	"github.com/b-open-io/bsocial-overlay/bsocial"
 	"github.com/b-open-io/overlay/beef"
@@ -51,7 +51,6 @@ type subRequest struct {
 
 var subscribe = make(chan *subRequest, 100)   // Buffered channel
 var unsubscribe = make(chan *subRequest, 100) // Buffered channel
-
 func init() {
 	log.Print("Initializing server...")
 	godotenv.Load("../../.env")
@@ -106,7 +105,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize storage: %v", err)
 	}
-
+	// bapStorage := &bap.BAPStorage{MongoStorage: bapStore}
 	bapLookup, err := bap.NewLookupService(
 		os.Getenv("MONGO_URL"),
 		"bap",
@@ -123,7 +122,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize lookup service: %v", err)
 	}
-
+	// bapTm := "tm_bap"
 	e = &engine.Engine{
 		Managers: map[string]engine.TopicManager{
 			"tm_bap": &bap.TopicManager{
@@ -153,7 +152,7 @@ func main() {
 			ApiUrl:  "https://arc.taal.com/v1",
 			WaitFor: broadcaster.ACCEPTED_BY_NETWORK,
 		},
-		HostingURL: os.Getenv("HOSTING_URL"),
+		HostingURL:   os.Getenv("HOSTING_URL"),
 	}
 
 	if currentBlock, err = chaintracker.GetChaintip(ctx); err != nil {
@@ -169,25 +168,22 @@ func main() {
 		}
 	}()
 
-	// Create server2 instance with configuration
-	httpServer := server2.New(
-		server2.WithEngine(e),
-		server2.WithMiddleware(logger.New()),
-		server2.WithConfig(server2.Config{
-			Port:                  PORT,
-			OctetStreamLimit:      server2.DefaultConfig.OctetStreamLimit,
-			ConnectionReadTimeout: server2.DefaultConfig.ConnectionReadTimeout,
-			ARCAPIKey:             os.Getenv("ARC_API_KEY"),
-			ARCCallbackToken:      os.Getenv("ARC_CALLBACK_TOKEN"),
+	httpServer, err := server.New(
+		server.WithEngine(e),
+		server.WithFiberMiddleware(logger.New()),
+		server.WithConfig(&server.Config{
+			Port: PORT,
 		}),
 	)
+	if err != nil {
+		log.Fatalf("Failed to create server: %v", err)
+	}
 
-	// Register custom routes
-	httpServer.RegisterRoute("GET", "", func(c *fiber.Ctx) error {
+	httpServer.Router.Get("", func(c *fiber.Ctx) error {
 		return c.SendString("Hello, World!")
 	})
 
-	httpServer.RegisterRoute("POST", "/ingest", func(c *fiber.Ctx) error {
+	httpServer.Router.Post("/ingest", func(c *fiber.Ctx) error {
 		if tx, err := transaction.NewTransactionFromBytes(c.Body()); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(Response{
 				Status:  "ERROR",
@@ -232,7 +228,7 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("GET", "/autofill", func(c *fiber.Ctx) error {
+	httpServer.Router.Get("/autofill", func(c *fiber.Ctx) error {
 		q := c.Query("q")
 
 		if cache != nil {
@@ -282,7 +278,7 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("GET", "/identity/search", func(c *fiber.Ctx) error {
+	httpServer.Router.Get("/identity/search", func(c *fiber.Ctx) error {
 		q := c.Query("q")
 		limit := c.QueryInt("limit", 20)  // Default limit is 20
 		offset := c.QueryInt("offset", 0) // Default offset is 0
@@ -300,7 +296,7 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("GET", "/post/search", func(c *fiber.Ctx) error {
+	httpServer.Router.Get("/post/search", func(c *fiber.Ctx) error {
 		q := c.Query("q")
 		limit := c.QueryInt("limit", 20)  // Default limit is 20
 		offset := c.QueryInt("offset", 0) // Default offset is 0
@@ -318,7 +314,18 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("POST", "/identity/validByAddress", func(c *fiber.Ctx) error {
+	// @Summary Validate identity by address
+	// @Description Validates an identity at a specific block height or timestamp
+	// @Tags identity
+	// @Accept json
+	// @Produce json
+	// @Param request body IdentityValidByAddressParams true "Validation parameters including address, block height, and timestamp"
+	// @Success 200 {object} Response{result=IdentityValidResponse} "Validation result with identity and profile data"
+	// @Failure 400 {object} Response "Invalid request parameters"
+	// @Failure 404 {object} Response "Identity not found"
+	// @Failure 500 {object} Response "Server error"
+	// @Router /identity/validByAddress [post]
+	httpServer.Router.Post("/identity/validByAddress", func(c *fiber.Ctx) error {
 		req := &IdentityValidByAddressParams{}
 		c.BodyParser(&req)
 		if req.Block == 0 && req.Timestamp == 0 {
@@ -336,6 +343,16 @@ func main() {
 				Status:  "ERROR",
 				Message: fmt.Sprintf("Identity not found for address %s", req.Address),
 			})
+			// } else if err := bapLookup.PopulateAddressHeights(c.Context(), id); err != nil {
+			// 	return c.Status(fiber.StatusInternalServerError).JSON(Response{
+			// 		Status:  "ERROR",
+			// 		Message: err.Error(),
+			// 	})
+			// } else if profile, err := bapStorage.LoadProfile(c.Context(), id.BapId); err != nil {
+			// 	return c.Status(fiber.StatusInternalServerError).JSON(Response{
+			// 		Status:  "ERROR",
+			// 		Message: err.Error(),
+			// 	})
 		} else if req.Block > 0 {
 			currentAddress := ""
 			for _, addr := range id.Addresses {
@@ -409,7 +426,7 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("GET", "/person/:field/:bapId", func(c *fiber.Ctx) error {
+	httpServer.Router.Get("/person/:field/:bapId", func(c *fiber.Ctx) error {
 		field := c.Params("field")
 		if field == "" {
 			return c.Status(fiber.StatusBadRequest).JSON(Response{
@@ -439,6 +456,12 @@ func main() {
 		} else {
 			data = id.Profile
 		}
+
+		// // if bap ID
+		// // if len(bapId) > 30 {
+		// // 	// TODO: consider it an address, find match based on match on addresses field
+
+		// // }
 
 		imageUrl, imageExists := data[field].(string)
 		if !imageExists || strings.TrimSpace(imageUrl) == "" {
@@ -569,7 +592,18 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("GET", "/profile", func(c *fiber.Ctx) error {
+	// @Summary Get profiles with pagination
+	// @Description Retrieves a paginated list of profiles
+	// @Tags profile
+	// @Accept json
+	// @Produce json
+	// @Param offset query integer false "Number of records to skip (default: 0)"
+	// @Param limit query integer false "Number of records to return (default: 20, max: 100)"
+	// @Success 200 {object} Response{result=[]map[string]interface{}} "List of profiles"
+	// @Failure 400 {object} Response "Invalid pagination parameters"
+	// @Failure 500 {object} Response "Server error"
+	// @Router /profile [get]
+	httpServer.Router.Get("/profile", func(c *fiber.Ctx) error {
 		// Default pagination parameters
 		offset := c.QueryInt("offset", 0) // Default offset is 0
 		limit := c.QueryInt("limit", 20)  // Set a default limit
@@ -588,7 +622,7 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("GET", "/profile/:bapId", func(c *fiber.Ctx) error {
+	httpServer.Router.Get("/profile/:bapId", func(c *fiber.Ctx) error {
 		bapId := c.Params("bapId")
 		if identity, err := bapLookup.LoadIdentityById(c.Context(), bapId); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(Response{
@@ -604,7 +638,17 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("POST", "/identity/get", func(c *fiber.Ctx) error {
+	// @Summary Get identity by ID
+	// @Description Retrieves an identity by its unique identifier
+	// @Tags identity
+	// @Accept json
+	// @Produce json
+	// @Param idKey body string true "Identity key"
+	// @Success 200 {object} Response{result=types.Identity} "Identity with profile data"
+	// @Failure 404 {object} Response "Identity not found"
+	// @Failure 500 {object} Response "Server error"
+	// @Router /identity/get [post]
+	httpServer.Router.Post("/identity/get", func(c *fiber.Ctx) error {
 		req := map[string]string{}
 		if err := c.BodyParser(&req); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(Response{
@@ -621,6 +665,11 @@ func main() {
 				Status:  "ERROR",
 				Message: "Identity not found for ID key: " + req["idKey"],
 			})
+			// } else if err := bapStorage.PopulateAddressHeights(c.Context(), id); err != nil {
+			// 	return c.Status(fiber.StatusInternalServerError).JSON(Response{
+			// 		Status:  "ERROR",
+			// 		Message: "Failed to populate address heights: " + err.Error(),
+			// 	})
 		} else {
 			return c.JSON(Response{
 				Status: "OK",
@@ -629,7 +678,7 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("GET", "/subscribe/:topics", func(c *fiber.Ctx) error {
+	httpServer.Router.Get("/subscribe/:topics", func(c *fiber.Ctx) error {
 		topicsParam := c.Params("topics")
 		if topicsParam == "" {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -746,13 +795,10 @@ func main() {
 		// Cancel the context to stop goroutines
 		cancel()
 
-		// Gracefully shut down the server
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer shutdownCancel()
-
-		if err := httpServer.Shutdown(shutdownCtx); err != nil {
-			log.Printf("Error shutting down server: %v", err)
-		}
+		// Gracefully shut down the Fiber app
+		// if err := app.Shutdown(); err != nil {
+		// 	log.Fatalf("Error shutting down server: %v", err)
+		// }
 
 		// Close Redis connections
 		if err := rdb.Close(); err != nil {
@@ -768,6 +814,10 @@ func main() {
 
 	if SYNC {
 		go func() {
+			// if err := e.StartGASPSync(context.Background()); err != nil {
+			// 	log.Fatalf("Error starting sync: %v", err)
+			// }
+
 			peers := make(map[string][]string)
 			for topic, syncConfig := range e.SyncConfiguration {
 				if syncConfig.Type == engine.SyncConfigurationPeers {
@@ -792,16 +842,18 @@ func main() {
 						url := fmt.Sprintf("%s/subscribe/%s", peer, strings.Join(topics, ","))
 						log.Println("Subscribing to peer:", url)
 						res, err := http.Get(fmt.Sprintf("%s/subscribe/%s", peer, strings.Join(topics, ",")))
+						// res, err := http.DefaultClient.Do(req)
 						if err != nil {
 							log.Println("Error subscribing to peer:", err)
 							return
 						}
-						defer res.Body.Close()
+						defer res.Body.Close() // don't forget!!
 
 						for ev, err := range sse.Read(res.Body, nil) {
+							// log.Println("Received event:", ev)
 							if err != nil {
 								// handle read error
-								break
+								break // can end the loop as Read stops on first error anyway
 							}
 							taggedBeef := overlay.TaggedBEEF{
 								Topics: []string{ev.Type},
@@ -826,57 +878,90 @@ func main() {
 			}
 		}()
 	}
+	// Start the server on the specified port
+	<-httpServer.StartWithGracefulShutdown(ctx)
 
-	// Start the server
-	log.Printf("Starting server on port %d...", PORT)
-	if err := httpServer.ListenAndServe(ctx); err != nil {
-		log.Fatalf("Server error: %v", err)
-	}
 }
 
 // Response represents the standard API response format
+// @Description Standard API response wrapper
 type Response struct {
-	Status  string      `json:"status" example:"OK"`
-	Message string      `json:"message,omitempty" example:"Operation completed successfully"`
-	Result  interface{} `json:"result,omitempty"`
+	// Status of the response ("OK" or "ERROR")
+	Status string `json:"status" example:"OK"`
+	// Optional error message
+	Message string `json:"message,omitempty" example:"Operation completed successfully"`
+	// Response payload
+	Result interface{} `json:"result,omitempty"`
 }
 
+// @Description Parameters for validating an attestation
 type AttestationValidParams struct {
-	Address   string `json:"address" example:"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"`
-	IDKey     string `json:"idKey" example:"3QxhyGy6ZE5SUpzXVb6AwnXYwH8g"`
+	// Blockchain address of the attestor
+	Address string `json:"address" example:"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"`
+	// Identity key
+	IDKey string `json:"idKey" example:"3QxhyGy6ZE5SUpzXVb6AwnXYwH8g"`
+	// Attribute being attested
 	Attribute string `json:"attribute" example:"name"`
-	Value     string `json:"value" example:"John Doe"`
-	Nonce     string `json:"nonce" example:"random123"`
-	Urn       string `json:"urn" example:"urn:bap:attestation:123"`
-	Hash      string `json:"hash" example:"abc123def456"`
-	Block     uint32 `json:"block" example:"123456"`
+	// Value of the attestation
+	Value string `json:"value" example:"John Doe"`
+	// Nonce for uniqueness
+	Nonce string `json:"nonce" example:"random123"`
+	// URN identifier
+	Urn string `json:"urn" example:"urn:bap:attestation:123"`
+	// Hash of the attestation
+	Hash string `json:"hash" example:"abc123def456"`
+	// Block height for validation
+	Block uint32 `json:"block" example:"123456"`
+	// Timestamp for validation
 	Timestamp uint32 `json:"timestamp" example:"1612137600"`
 }
 
+// IdentitiesRequest represents the request format for fetching multiple identities
+// @Description Request format for retrieving multiple identities
 type IdentitiesRequest struct {
-	IdKeys    []string `json:"idKeys" example:"['id1', 'id2']"`
+	// List of identity keys to fetch
+	IdKeys []string `json:"idKeys" example:"['id1', 'id2']"`
+	// List of blockchain addresses to fetch identities for
 	Addresses []string `json:"addresses" example:"['addr1', 'addr2']"`
 }
 
+// IdentityValidByAddressParams represents parameters for identity validation
+// @Description Parameters for validating an identity at a specific point in time
 type IdentityValidByAddressParams struct {
-	Address   string `json:"address" example:"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"`
-	Block     uint32 `json:"block" example:"123456"`
+	// Blockchain address to validate
+	Address string `json:"address" example:"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"`
+	// Block height to validate at (optional)
+	Block uint32 `json:"block" example:"123456"`
+	// Timestamp to validate at (optional)
 	Timestamp uint32 `json:"timestamp" example:"1612137600"`
 }
 
+// ValidityRecord represents the validity status of an identity
+// @Description Record indicating the validity of an identity at a point in time
 type ValidityRecord struct {
-	Valid     bool   `json:"valid" example:"true"`
-	Block     uint32 `json:"block" example:"123456"`
+	// Whether the identity is valid
+	Valid bool `json:"valid" example:"true"`
+	// Block height at which validity was checked
+	Block uint32 `json:"block" example:"123456"`
+	// Timestamp at which validity was checked
 	Timestamp uint32 `json:"timestamp" example:"1612137600"`
 }
 
+// @Description Response for attestation validation
 type AttestationValidResponse struct {
+	// The attestation being validated
 	bap.Attestation
+	// Validity status record
 	ValidityRecord
 }
 
+// IdentityValidResponse represents the response for identity validation
+// @Description Response containing identity validation results
 type IdentityValidResponse struct {
-	Identity       bap.Identity   `json:"identity"`
+	// The identity being validated
+	Identity bap.Identity `json:"identity"`
+	// Validity status record
 	ValidityRecord ValidityRecord `json:"validityRecord"`
-	Profile        interface{}    `json:"profile,omitempty"`
+	// Associated profile data if valid
+	Profile interface{} `json:"profile,omitempty"`
 }
