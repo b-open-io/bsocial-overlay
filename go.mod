@@ -68,11 +68,13 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/4chain-ag/go-overlay-services => github.com/4chain-ag/go-overlay-services v0.1.1-0.20250617204906-dc435ee9c037
+replace github.com/4chain-ag/go-overlay-services => github.com/4chain-ag/go-overlay-services v0.1.1-0.20250617220328-5bc9acd028b0
+
+// replace github.com/4chain-ag/go-overlay-services => ../go-overlay-services
 
 replace github.com/bitcoin-sv/go-templates => github.com/b-open-io/go-templates v0.0.0-20250611003449-d3d47c4c4967
 
-replace github.com/b-open-io/overlay => github.com/b-open-io/overlay v0.0.0-20250617185305-0d785936d306
+replace github.com/b-open-io/overlay => github.com/b-open-io/overlay v0.0.0-20250617220419-ec8c5b01c994
 
 // replace github.com/b-open-io/overlay => ../overlay
 

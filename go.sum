@@ -1,5 +1,5 @@
-github.com/4chain-ag/go-overlay-services v0.1.1-0.20250617204906-dc435ee9c037 h1:eM4a4Ae4mfOeRxjWvlCMS84u5VmkOMK/pMSkT9GeoSg=
-github.com/4chain-ag/go-overlay-services v0.1.1-0.20250617204906-dc435ee9c037/go.mod h1:+TWIaOBlpirzTpg/fFMybxMx+NsVH+DTF2LR8eeczqo=
+github.com/4chain-ag/go-overlay-services v0.1.1-0.20250617220328-5bc9acd028b0 h1:3U3ZuMtT7YErDyvYcD838h9NrudwRGYDi/uMmt3s05E=
+github.com/4chain-ag/go-overlay-services v0.1.1-0.20250617220328-5bc9acd028b0/go.mod h1:+TWIaOBlpirzTpg/fFMybxMx+NsVH+DTF2LR8eeczqo=
 github.com/GorillaPool/go-junglebus v0.2.14 h1:dnGU3LIZ21JiHeeSRW0Yn5xvSHKgiN0T/t3cioABtyg=
 github.com/GorillaPool/go-junglebus v0.2.14/go.mod h1:EMAAnFQbBQB7xLe7DdLTLbescKUudflsXT0CqlSeWgQ=
 github.com/RaveNoX/go-jsoncommentstrip v1.0.0/go.mod h1:78ihd09MekBnJnxpICcwzCMzGrKSKYe4AqU6PDYYpjk=
@@ -9,8 +9,8 @@ github.com/apapsch/go-jsonmerge/v2 v2.0.0 h1:axGnT1gRIfimI7gJifB699GoE/oq+F2MU7D
 github.com/apapsch/go-jsonmerge/v2 v2.0.0/go.mod h1:lvDnEdqiQrp0O42VQGgmlKpxL1AP2+08jFMw88y4klk=
 github.com/b-open-io/go-templates v0.0.0-20250611003449-d3d47c4c4967 h1:O8Ghj6Y4sEZhC5eZBFHhdXQz/X+uN3qyifbOGYWiJd8=
 github.com/b-open-io/go-templates v0.0.0-20250611003449-d3d47c4c4967/go.mod h1:xFs0s0P1uT0cReDWg1kbTV1T/7Nm5yt42GKDn9bPjSw=
-github.com/b-open-io/overlay v0.0.0-20250617185305-0d785936d306 h1:hDbF52sCY7NIrubdhqGor+3746yiYNzhoRmNLG+NYSE=
-github.com/b-open-io/overlay v0.0.0-20250617185305-0d785936d306/go.mod h1:OSWTMoQaynZCWR6ERxm1cRaaLRx9q/M0CaXU/KAQn4c=
+github.com/b-open-io/overlay v0.0.0-20250617220419-ec8c5b01c994 h1:LkrDVgDegz5Lpl3NAVpd/CT70503Hp1DRFWkfOGGxC0=
+github.com/b-open-io/overlay v0.0.0-20250617220419-ec8c5b01c994/go.mod h1:OSWTMoQaynZCWR6ERxm1cRaaLRx9q/M0CaXU/KAQn4c=
 github.com/bitcoinschema/go-aip v0.3.3 h1:hTe9xbjVA6yGZgVjXdsdSprq9HEoZYMfNOXJBJlbE3E=
 github.com/bitcoinschema/go-aip v0.3.3/go.mod h1:Dw/AS97LfD8Jq4efsZAFG6gTZAVl3pp5yMDA5UmhhJY=
 github.com/bitcoinschema/go-b v0.2.3 h1:oq78sYf6GyKKZWOMrr7QXCT3xP3VjRUpL0ZFsvWm4wE=
