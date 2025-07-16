@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/4chain-ag/go-overlay-services/pkg/core/engine"
+	"github.com/bsv-blockchain/go-overlay-services/pkg/core/engine"
 	"github.com/GorillaPool/go-junglebus"
 	"github.com/b-open-io/bsocial-overlay/bap"
 	"github.com/b-open-io/overlay/beef"
@@ -26,7 +26,7 @@ import (
 var TOPIC string
 var FROM_BLOCK uint
 var QUEUE = "bap"
-var chaintracker headers_client.Client
+var chaintracker *headers_client.Client
 var jb *junglebus.Client
 
 type txSummary struct {
@@ -36,7 +36,7 @@ type txSummary struct {
 
 func init() {
 	godotenv.Load("../../.env")
-	chaintracker = headers_client.Client{
+	chaintracker = &headers_client.Client{
 		Url:    os.Getenv("BLOCK_HEADERS_URL"),
 		ApiKey: os.Getenv("BLOCK_HEADERS_API_KEY"),
 	}
@@ -182,7 +182,7 @@ func main() {
 				startTime := time.Now()
 				if txid, err := chainhash.NewHashFromHex(txidStr); err != nil {
 					log.Fatalf("Invalid txid: %v", err)
-				} else if _, err := beefStore.LoadTx(ctx, txid, &chaintracker); err != nil {
+				} else if _, err := beefStore.LoadTx(ctx, txid, chaintracker); err != nil {
 					log.Fatalf("Failed to load transaction: %v", err)
 				} else if beefBytes, err := beefStore.LoadBeef(ctx, txid); err != nil {
 					log.Fatalf("Failed to load BEEF: %v", err)

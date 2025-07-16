@@ -18,13 +18,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/4chain-ag/go-overlay-services/pkg/core/engine"
-	"github.com/4chain-ag/go-overlay-services/pkg/server2"
 	"github.com/b-open-io/bsocial-overlay/bap"
 	"github.com/b-open-io/bsocial-overlay/bsocial"
 	"github.com/b-open-io/overlay/beef"
 	"github.com/b-open-io/overlay/publish"
 	"github.com/b-open-io/overlay/storage"
+	"github.com/bsv-blockchain/go-overlay-services/pkg/core/engine"
+	"github.com/bsv-blockchain/go-overlay-services/pkg/server"
 	"github.com/bsv-blockchain/go-sdk/overlay"
 	"github.com/bsv-blockchain/go-sdk/transaction"
 	"github.com/bsv-blockchain/go-sdk/transaction/broadcaster"
@@ -35,7 +35,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-var chaintracker headers_client.Client
+var chaintracker *headers_client.Client
 var PORT int
 var SYNC bool
 var rdb, sub *redis.Client
@@ -54,7 +54,7 @@ var unsubscribe = make(chan *subRequest, 100) // Buffered channel
 func init() {
 	log.Print("Initializing server...")
 	godotenv.Load("../../.env")
-	chaintracker = headers_client.Client{
+	chaintracker = &headers_client.Client{
 		Url:    os.Getenv("BLOCK_HEADERS_URL"),
 		ApiKey: os.Getenv("BLOCK_HEADERS_API_KEY"),
 	}
@@ -168,21 +168,19 @@ func main() {
 		}
 	}()
 
-	// Create server2 instance with configuration
-	httpServer := server2.New(
-		server2.WithEngine(e),
-		server2.WithMiddleware(logger.New()),
-		server2.WithConfig(server2.Config{
-			Port:                  PORT,
-			OctetStreamLimit:      server2.DefaultConfig.OctetStreamLimit,
-			ConnectionReadTimeout: server2.DefaultConfig.ConnectionReadTimeout,
-			ARCAPIKey:             os.Getenv("ARC_API_KEY"),
-			ARCCallbackToken:      os.Getenv("ARC_CALLBACK_TOKEN"),
-		}),
-	)
+	// Create our own fiber instance
+	app := fiber.New()
+	app.Use(logger.New())
+
+	// Register overlay service routes
+	server.RegisterRoutesWithErrorHandler(app, &server.RegisterRoutesConfig{
+		ARCAPIKey:        os.Getenv("ARC_API_KEY"),
+		ARCCallbackToken: os.Getenv("ARC_CALLBACK_TOKEN"),
+		Engine:           e,
+	})
 
 	// Register custom routes
-	httpServer.RegisterRoute("POST", "/api/v1/ingest", func(c *fiber.Ctx) error {
+	app.Post("/api/v1/ingest", func(c *fiber.Ctx) error {
 		if tx, err := transaction.NewTransactionFromBytes(c.Body()); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(Response{
 				Status:  "ERROR",
@@ -227,7 +225,7 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("GET", "/api/v1/autofill", func(c *fiber.Ctx) error {
+	app.Get("/api/v1/autofill", func(c *fiber.Ctx) error {
 		q := c.Query("q")
 
 		if cache != nil {
@@ -277,7 +275,7 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("GET", "/api/v1/identity/search", func(c *fiber.Ctx) error {
+	app.Get("/api/v1/identity/search", func(c *fiber.Ctx) error {
 		q := c.Query("q")
 		limit := c.QueryInt("limit", 20)  // Default limit is 20
 		offset := c.QueryInt("offset", 0) // Default offset is 0
@@ -295,7 +293,7 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("GET", "/api/v1/post/search", func(c *fiber.Ctx) error {
+	app.Get("/api/v1/post/search", func(c *fiber.Ctx) error {
 		q := c.Query("q")
 		limit := c.QueryInt("limit", 20)  // Default limit is 20
 		offset := c.QueryInt("offset", 0) // Default offset is 0
@@ -313,7 +311,7 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("POST", "/api/v1/identity/validByAddress", func(c *fiber.Ctx) error {
+	app.Post("/api/v1/identity/validByAddress", func(c *fiber.Ctx) error {
 		req := &IdentityValidByAddressParams{}
 		c.BodyParser(&req)
 		if req.Block == 0 && req.Timestamp == 0 {
@@ -404,7 +402,7 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("GET", "/api/v1/person/:field/:bapId", func(c *fiber.Ctx) error {
+	app.Get("/api/v1/person/:field/:bapId", func(c *fiber.Ctx) error {
 		field := c.Params("field")
 		if field == "" {
 			return c.Status(fiber.StatusBadRequest).JSON(Response{
@@ -564,7 +562,7 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("GET", "/api/v1/profile", func(c *fiber.Ctx) error {
+	app.Get("/api/v1/profile", func(c *fiber.Ctx) error {
 		// Default pagination parameters
 		offset := c.QueryInt("offset", 0) // Default offset is 0
 		limit := c.QueryInt("limit", 20)  // Set a default limit
@@ -583,7 +581,7 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("GET", "/api/v1/profile/:bapId", func(c *fiber.Ctx) error {
+	app.Get("/api/v1/profile/:bapId", func(c *fiber.Ctx) error {
 		bapId := c.Params("bapId")
 		if identity, err := bapLookup.LoadIdentityById(c.Context(), bapId); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(Response{
@@ -599,7 +597,7 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("POST", "/api/v1/identity/get", func(c *fiber.Ctx) error {
+	app.Post("/api/v1/identity/get", func(c *fiber.Ctx) error {
 		req := map[string]string{}
 		if err := c.BodyParser(&req); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(Response{
@@ -624,7 +622,7 @@ func main() {
 		}
 	})
 
-	httpServer.RegisterRoute("GET", "/api/v1/subscribe/:topics", func(c *fiber.Ctx) error {
+	app.Get("/api/v1/subscribe/:topics", func(c *fiber.Ctx) error {
 		topicsParam := c.Params("topics")
 		if topicsParam == "" {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -745,7 +743,7 @@ func main() {
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer shutdownCancel()
 
-		if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		if err := app.ShutdownWithContext(shutdownCtx); err != nil {
 			log.Printf("Error shutting down server: %v", err)
 		}
 
@@ -827,7 +825,7 @@ func main() {
 
 	// Start the server
 	log.Printf("Starting server on port %d...", PORT)
-	if err := httpServer.ListenAndServe(ctx); err != nil {
+	if err := app.Listen(fmt.Sprintf(":%d", PORT)); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}
 }
