@@ -89,6 +89,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize storage: %v", err)
 	}
+	log.Println("Storage initialized successfully")
 	// defer store.Close()
 	tm := "tm_bsocial"
 
