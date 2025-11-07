@@ -671,7 +671,7 @@ func (h *Handlers) ServeDocumentation(c *fiber.Ctx) error {
 	}
 
 	html, err := scalar.NewV2(
-		scalar.WithBaseServerURL(hostingURL+"/openapi.json"),
+		scalar.WithSpecURL(hostingURL+"/openapi.json"),
 		scalar.WithDarkMode(),
 	)
 	if err != nil {
@@ -680,6 +680,170 @@ func (h *Handlers) ServeDocumentation(c *fiber.Ctx) error {
 			Message: "Failed to render documentation: " + err.Error(),
 		})
 	}
+
+	c.Set("Content-Type", "text/html; charset=utf-8")
+	return c.SendString(html)
+}
+
+// @Summary Landing page
+// @Description Beautiful landing page with Sigma branding and link to API documentation
+// @Tags Documentation
+// @Produce text/html
+// @Success 200 {string} string "HTML landing page"
+// @Router / [get]
+func (h *Handlers) ServeLandingPage(c *fiber.Ctx) error {
+	html := `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIGMA - Decentralized Identity API</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background: linear-gradient(135deg, #0a1433 0%, #1a2850 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            text-align: center;
+            padding: 2rem;
+            max-width: 800px;
+        }
+
+        .logo {
+            width: 100%;
+            max-width: 600px;
+            height: auto;
+            margin: 0 auto 3rem;
+            filter: drop-shadow(0 4px 12px rgba(255, 255, 255, 0.1));
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #ffffff 0%, #a0aec0 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        p {
+            font-size: 1.25rem;
+            color: #cbd5e0;
+            margin-bottom: 3rem;
+            line-height: 1.6;
+        }
+
+        .button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 2.5rem;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.125rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(102, 126, 234, 0.6);
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            margin-top: 4rem;
+        }
+
+        .feature {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .feature h3 {
+            font-size: 1.125rem;
+            margin-bottom: 0.5rem;
+            color: #a0aec0;
+        }
+
+        .feature p {
+            font-size: 0.875rem;
+            margin: 0;
+            color: #718096;
+        }
+
+        @media (max-width: 640px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            p {
+                font-size: 1rem;
+            }
+
+            .button {
+                padding: 0.875rem 2rem;
+                font-size: 1rem;
+            }
+
+            .features {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <svg class="logo" viewBox="0 0 1135.74 367.32" xmlns="http://www.w3.org/2000/svg">
+            <defs><style>.cls-1{fill:#ffffff;}</style></defs>
+            <g><path class="cls-1" d="M59.17,183.71c0,14.48,11.59,26.07,25.65,26.07,15.31,0,24.83-8.69,24.83-21.52,0-18.62-24.41-24-44.69-31.03C23.17,142.33,0,122.89,0,80.27S37.65,0,84.41,0c55.03,0,81.1,35.17,84.41,81.1h-57.1c0-14.07-8.69-25.65-25.65-25.65-13.24,0-26.07,7.86-26.07,24,0,18.62,22.76,21.93,43.86,28.14,44.27,13.24,64.96,38.07,64.96,76.96,0,43.86-37.24,80.27-83.99,80.27C30.62,264.8,0,228.39,0,183.71H59.17Z"/><path class="cls-1" d="M209.77,8.28h60.82v248.25h-60.82V8.28Z"/><path class="cls-1" d="M443.54,0c45.93,0,77.79,16.96,103.85,43.44l-42.2,38.89c-16.96-15.31-38.07-24.83-61.65-24.83-44.27,0-72.82,33.1-72.82,74.89,0,45.93,32.69,74.89,74.06,74.89,43.45,0,64.55-24,66.2-48h-70.75v-52.55h136.54v23.58c0,73.24-43.03,134.47-133.23,134.47-78.61,0-134.47-58.34-134.47-132.4S364.93,0,443.54,0Z"/><path class="cls-1" d="M616.49,8.28h56.68l63.3,134.06L800.19,8.28h55.86v248.25h-60.41v-110.47l-54.2,118.75h-9.93l-54.2-119.58v111.3h-60.82V8.28Z"/><path class="cls-1" d="M1003.34,0h10.76l121.64,256.53h-65.37l-12.41-25.65h-98.06l-12,25.65h-65.37L1003.34,0Zm33.93,187.43l-28.55-62.89h-.83l-28.96,62.89h58.34Z"/></g>
+            <g><path class="cls-1" d="M11.83,317.37H28.67c14.26,0,25.3,10.47,25.3,24.09,0,12.89-9.83,24.25-25.3,24.25H11.83v-48.34Zm16.6,37.54c7.57,0,13.37-5.32,13.37-13.45,0-7.49-5.08-13.38-13.37-13.38h-4.75v26.83h4.75Z"/><path class="cls-1" d="M62.02,317.37h31.99v10.47h-20.14v8.7h18.61v10.31h-18.61v8.7h21.03v10.15H62.02v-48.34Z"/><path class="cls-1" d="M127.28,315.75c9.18,0,15.55,3.46,20.71,8.86l-8.14,7.73c-3.38-3.3-7.73-5.4-12.57-5.4-8.62,0-14.18,6.45-14.18,14.58s5.56,14.58,14.18,14.58c4.83,0,9.18-2.09,12.57-5.4l7.89,7.73c-4.83,5.08-11.52,8.86-20.46,8.86-15.31,0-26.18-11.36-26.18-25.78s10.88-25.78,26.18-25.78Z"/><path class="cls-1" d="M153.71,317.37h31.99v10.47h-20.14v8.7h18.61v10.31h-18.61v8.7h21.03v10.15h-32.87v-48.34Z"/><path class="cls-1" d="M192.3,317.37h12.49l18.77,28.68v-28.68h11.76v48.34h-12.33l-18.85-28.76v28.76h-11.84v-48.34Z"/><path class="cls-1" d="M251.6,327.84h-10.8v-10.47h33.68v10.47h-10.96v37.87h-11.92v-37.87Z"/><path class="cls-1" d="M279.96,317.37h20.22c10.39,0,17.16,6.28,17.16,15.39,0,8.46-4.27,13.21-11.44,14.98l13.05,17.97h-14.82l-12.33-18.05v18.05h-11.84v-48.34Zm21.35,20.95c2.66,0,4.43-2.74,4.43-5.56s-2.09-5.32-4.75-5.32h-9.18v10.88h9.51Z"/><path class="cls-1" d="M344.09,315.75h2.09l23.69,49.95h-12.73l-2.42-5h-19.09l-2.34,5h-12.73l23.53-49.95Zm6.61,36.5l-5.56-12.25h-.16l-5.64,12.25h11.36Z"/><path class="cls-1" d="M375.03,317.37h11.84v38.19h21.03v10.15h-32.87v-48.34Z"/><path class="cls-1" d="M413.62,317.37h11.84v48.34h-11.84v-48.34Z"/><path class="cls-1" d="M431.02,364.58l22.07-36.33h-19.34v-10.88h37.95v1.13l-22.88,36.25h22.08v10.96h-39.88v-1.13Z"/><path class="cls-1" d="M478.96,317.37h31.98v10.47h-20.14v8.7h18.61v10.31h-18.61v8.7h21.03v10.15h-32.87v-48.34Z"/><path class="cls-1" d="M517.55,317.37h16.84c14.26,0,25.3,10.47,25.3,24.09,0,12.89-9.83,24.25-25.3,24.25h-16.84v-48.34Zm16.6,37.54c7.57,0,13.37-5.32,13.37-13.45,0-7.49-5.08-13.38-13.37-13.38h-4.75v26.83h4.75Z"/><path class="cls-1" d="M586.81,320.3h15.82c13.4,0,23.77,9.84,23.77,22.63,0,12.11-9.23,22.78-23.77,22.78h-15.82v-45.41Zm15.59,35.27c7.11,0,12.56-5,12.56-12.64,0-7.04-4.77-12.56-12.56-12.56h-4.46v25.2h4.46Z"/><path class="cls-1" d="M633.96,320.3h11.13v45.41h-11.13v-45.41Z"/><path class="cls-1" d="M676.72,318.78c8.4,0,14.23,3.1,19,7.95l-7.72,7.11c-3.1-2.8-6.96-4.54-11.28-4.54-8.1,0-13.32,6.05-13.32,13.7,0,8.4,5.98,13.7,13.55,13.7,7.95,0,11.81-4.39,12.11-8.78h-12.94v-9.61h24.98v4.31c0,13.4-7.87,24.6-24.37,24.6-14.38,0-24.6-10.67-24.6-24.22s10.22-24.22,24.6-24.22Z"/><path class="cls-1" d="M708.35,320.3h11.13v45.41h-11.13v-45.41Z"/><path class="cls-1" d="M734.77,330.13h-10.14v-9.84h31.64v9.84h-10.29v35.57h-11.2v-35.57Z"/><path class="cls-1" d="M774.27,318.78h1.97l22.25,46.92h-11.96l-2.27-4.69h-17.94l-2.2,4.69h-11.96l22.1-46.92Zm6.21,34.29l-5.22-11.5h-.15l-5.3,11.5h10.67Z"/><path class="cls-1" d="M803.34,320.3h11.13v35.87h19.75v9.54h-30.88v-45.41Z"/><path class="cls-1" d="M857.38,320.3h11.12v45.41h-11.12v-45.41Z"/><path class="cls-1" d="M875.77,320.3h15.82c13.4,0,23.76,9.84,23.76,22.63,0,12.11-9.23,22.78-23.76,22.78h-15.82v-45.41Zm15.59,35.27c7.11,0,12.56-5,12.56-12.64,0-7.04-4.77-12.56-12.56-12.56h-4.47v25.2h4.47Z"/><path class="cls-1" d="M922.92,320.3h30.05v9.84h-18.92v8.17h17.48v9.69h-17.48v8.17h19.75v9.54h-30.88v-45.41Z"/><path class="cls-1" d="M959.17,320.3h11.73l17.63,26.94v-26.94h11.05v45.41h-11.58l-17.71-27.02v27.02h-11.12v-45.41Z"/><path class="cls-1" d="M1014.87,330.13h-10.14v-9.84h31.64v9.84h-10.29v35.57h-11.2v-35.57Z"/><path class="cls-1" d="M1041.51,320.3h11.13v45.41h-11.13v-45.41Z"/><path class="cls-1" d="M1067.92,330.13h-10.14v-9.84h31.64v9.84h-10.29v35.57h-11.2v-35.57Z"/><path class="cls-1" d="M1108.34,343.76l-16.12-23.46h12.56l9.08,13.62,9.16-13.62h12.49l-16.12,23.46v21.95h-11.05v-21.95Z"/></g>
+        </svg>
+
+        <h1>Decentralized Identity API</h1>
+        <p>Bitcoin SV overlay service for BAP identities and BSocial interactions. Providing real-time subscription capabilities and comprehensive REST API endpoints.</p>
+
+        <a href="/docs" class="button">View API Documentation →</a>
+
+        <div class="features">
+            <div class="feature">
+                <h3>BAP Protocol</h3>
+                <p>Bitcoin Attestation Protocol for identity management</p>
+            </div>
+            <div class="feature">
+                <h3>Real-time</h3>
+                <p>SSE subscriptions for live updates</p>
+            </div>
+            <div class="feature">
+                <h3>Scalable</h3>
+                <p>Redis & MongoDB powered infrastructure</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>`
 
 	c.Set("Content-Type", "text/html; charset=utf-8")
 	return c.SendString(html)

@@ -213,6 +213,7 @@ func main() {
 	)
 
 	// Register custom routes
+	app.Get("/", handlers.ServeLandingPage)
 	app.Post("/api/v1/ingest", handlers.IngestTransaction)
 	app.Get("/api/v1/autofill", handlers.Autofill)
 	app.Get("/api/v1/identity/search", handlers.SearchIdentities)
