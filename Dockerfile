@@ -13,8 +13,9 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the application
-RUN go build -o server.run ./cmd/server
+# Build the applications
+RUN go build -o server.run ./cmd/server && \
+    go build -o crawl.run ./cmd/sub
 
 # Runtime stage
 FROM alpine:latest
@@ -23,8 +24,9 @@ RUN apk --no-cache add ca-certificates
 
 WORKDIR /root/
 
-# Copy binary from builder
+# Copy binaries from builder
 COPY --from=builder /app/server.run .
+COPY --from=builder /app/crawl.run .
 
 # Expose port
 EXPOSE 3000
