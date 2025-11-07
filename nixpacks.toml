@@ -1,2 +1,0 @@
-[phases.build]
-cmds = ["go build -o server.run ./cmd/server", "go build -o crawl.run ./cmd/sub"]
