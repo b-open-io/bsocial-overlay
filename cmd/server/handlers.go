@@ -665,13 +665,15 @@ func (h *Handlers) ServeOpenAPISpec(c *fiber.Ctx) error {
 // @Success 200 {string} string "HTML documentation page"
 // @Router /docs [get]
 func (h *Handlers) ServeDocumentation(c *fiber.Ctx) error {
-	hostingURL := os.Getenv("HOSTING_URL")
-	if hostingURL == "" {
-		hostingURL = fmt.Sprintf("http://localhost:%d", h.port)
+	// Build the full URL for the OpenAPI spec
+	scheme := "http"
+	if c.Protocol() == "https" {
+		scheme = "https"
 	}
+	specURL := fmt.Sprintf("%s://%s/openapi.json", scheme, c.Hostname())
 
 	html, err := scalar.NewV2(
-		scalar.WithSpecURL(hostingURL+"/openapi.json"),
+		scalar.WithSpecURL(specURL),
 		scalar.WithDarkMode(),
 	)
 	if err != nil {
@@ -710,7 +712,7 @@ func (h *Handlers) ServeLandingPage(c *fiber.Ctx) error {
                 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
-            background: linear-gradient(135deg, #0a1433 0%, #1a2850 100%);
+            background: #000000;
             color: #ffffff;
             min-height: 100vh;
             display: flex;
@@ -732,16 +734,6 @@ func (h *Handlers) ServeLandingPage(c *fiber.Ctx) error {
             filter: drop-shadow(0 4px 12px rgba(255, 255, 255, 0.1));
         }
 
-        h1 {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-            background: linear-gradient(135deg, #ffffff 0%, #a0aec0 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
         p {
             font-size: 1.25rem;
             color: #cbd5e0;
@@ -751,7 +743,7 @@ func (h *Handlers) ServeLandingPage(c *fiber.Ctx) error {
 
         .button {
             display: inline-block;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #667eea;
             color: white;
             padding: 1rem 2.5rem;
             border-radius: 12px;
@@ -763,6 +755,7 @@ func (h *Handlers) ServeLandingPage(c *fiber.Ctx) error {
         }
 
         .button:hover {
+            background: #5568d3;
             transform: translateY(-2px);
             box-shadow: 0 8px 30px rgba(102, 126, 234, 0.6);
         }
@@ -795,10 +788,6 @@ func (h *Handlers) ServeLandingPage(c *fiber.Ctx) error {
         }
 
         @media (max-width: 640px) {
-            h1 {
-                font-size: 2rem;
-            }
-
             p {
                 font-size: 1rem;
             }
@@ -822,7 +811,6 @@ func (h *Handlers) ServeLandingPage(c *fiber.Ctx) error {
             <g><path class="cls-1" d="M11.83,317.37H28.67c14.26,0,25.3,10.47,25.3,24.09,0,12.89-9.83,24.25-25.3,24.25H11.83v-48.34Zm16.6,37.54c7.57,0,13.37-5.32,13.37-13.45,0-7.49-5.08-13.38-13.37-13.38h-4.75v26.83h4.75Z"/><path class="cls-1" d="M62.02,317.37h31.99v10.47h-20.14v8.7h18.61v10.31h-18.61v8.7h21.03v10.15H62.02v-48.34Z"/><path class="cls-1" d="M127.28,315.75c9.18,0,15.55,3.46,20.71,8.86l-8.14,7.73c-3.38-3.3-7.73-5.4-12.57-5.4-8.62,0-14.18,6.45-14.18,14.58s5.56,14.58,14.18,14.58c4.83,0,9.18-2.09,12.57-5.4l7.89,7.73c-4.83,5.08-11.52,8.86-20.46,8.86-15.31,0-26.18-11.36-26.18-25.78s10.88-25.78,26.18-25.78Z"/><path class="cls-1" d="M153.71,317.37h31.99v10.47h-20.14v8.7h18.61v10.31h-18.61v8.7h21.03v10.15h-32.87v-48.34Z"/><path class="cls-1" d="M192.3,317.37h12.49l18.77,28.68v-28.68h11.76v48.34h-12.33l-18.85-28.76v28.76h-11.84v-48.34Z"/><path class="cls-1" d="M251.6,327.84h-10.8v-10.47h33.68v10.47h-10.96v37.87h-11.92v-37.87Z"/><path class="cls-1" d="M279.96,317.37h20.22c10.39,0,17.16,6.28,17.16,15.39,0,8.46-4.27,13.21-11.44,14.98l13.05,17.97h-14.82l-12.33-18.05v18.05h-11.84v-48.34Zm21.35,20.95c2.66,0,4.43-2.74,4.43-5.56s-2.09-5.32-4.75-5.32h-9.18v10.88h9.51Z"/><path class="cls-1" d="M344.09,315.75h2.09l23.69,49.95h-12.73l-2.42-5h-19.09l-2.34,5h-12.73l23.53-49.95Zm6.61,36.5l-5.56-12.25h-.16l-5.64,12.25h11.36Z"/><path class="cls-1" d="M375.03,317.37h11.84v38.19h21.03v10.15h-32.87v-48.34Z"/><path class="cls-1" d="M413.62,317.37h11.84v48.34h-11.84v-48.34Z"/><path class="cls-1" d="M431.02,364.58l22.07-36.33h-19.34v-10.88h37.95v1.13l-22.88,36.25h22.08v10.96h-39.88v-1.13Z"/><path class="cls-1" d="M478.96,317.37h31.98v10.47h-20.14v8.7h18.61v10.31h-18.61v8.7h21.03v10.15h-32.87v-48.34Z"/><path class="cls-1" d="M517.55,317.37h16.84c14.26,0,25.3,10.47,25.3,24.09,0,12.89-9.83,24.25-25.3,24.25h-16.84v-48.34Zm16.6,37.54c7.57,0,13.37-5.32,13.37-13.45,0-7.49-5.08-13.38-13.37-13.38h-4.75v26.83h4.75Z"/><path class="cls-1" d="M586.81,320.3h15.82c13.4,0,23.77,9.84,23.77,22.63,0,12.11-9.23,22.78-23.77,22.78h-15.82v-45.41Zm15.59,35.27c7.11,0,12.56-5,12.56-12.64,0-7.04-4.77-12.56-12.56-12.56h-4.46v25.2h4.46Z"/><path class="cls-1" d="M633.96,320.3h11.13v45.41h-11.13v-45.41Z"/><path class="cls-1" d="M676.72,318.78c8.4,0,14.23,3.1,19,7.95l-7.72,7.11c-3.1-2.8-6.96-4.54-11.28-4.54-8.1,0-13.32,6.05-13.32,13.7,0,8.4,5.98,13.7,13.55,13.7,7.95,0,11.81-4.39,12.11-8.78h-12.94v-9.61h24.98v4.31c0,13.4-7.87,24.6-24.37,24.6-14.38,0-24.6-10.67-24.6-24.22s10.22-24.22,24.6-24.22Z"/><path class="cls-1" d="M708.35,320.3h11.13v45.41h-11.13v-45.41Z"/><path class="cls-1" d="M734.77,330.13h-10.14v-9.84h31.64v9.84h-10.29v35.57h-11.2v-35.57Z"/><path class="cls-1" d="M774.27,318.78h1.97l22.25,46.92h-11.96l-2.27-4.69h-17.94l-2.2,4.69h-11.96l22.1-46.92Zm6.21,34.29l-5.22-11.5h-.15l-5.3,11.5h10.67Z"/><path class="cls-1" d="M803.34,320.3h11.13v35.87h19.75v9.54h-30.88v-45.41Z"/><path class="cls-1" d="M857.38,320.3h11.12v45.41h-11.12v-45.41Z"/><path class="cls-1" d="M875.77,320.3h15.82c13.4,0,23.76,9.84,23.76,22.63,0,12.11-9.23,22.78-23.76,22.78h-15.82v-45.41Zm15.59,35.27c7.11,0,12.56-5,12.56-12.64,0-7.04-4.77-12.56-12.56-12.56h-4.47v25.2h4.47Z"/><path class="cls-1" d="M922.92,320.3h30.05v9.84h-18.92v8.17h17.48v9.69h-17.48v8.17h19.75v9.54h-30.88v-45.41Z"/><path class="cls-1" d="M959.17,320.3h11.73l17.63,26.94v-26.94h11.05v45.41h-11.58l-17.71-27.02v27.02h-11.12v-45.41Z"/><path class="cls-1" d="M1014.87,330.13h-10.14v-9.84h31.64v9.84h-10.29v35.57h-11.2v-35.57Z"/><path class="cls-1" d="M1041.51,320.3h11.13v45.41h-11.13v-45.41Z"/><path class="cls-1" d="M1067.92,330.13h-10.14v-9.84h31.64v9.84h-10.29v35.57h-11.2v-35.57Z"/><path class="cls-1" d="M1108.34,343.76l-16.12-23.46h12.56l9.08,13.62,9.16-13.62h12.49l-16.12,23.46v21.95h-11.05v-21.95Z"/></g>
         </svg>
 
-        <h1>Decentralized Identity API</h1>
         <p>Bitcoin SV overlay service for BAP identities and BSocial interactions. Providing real-time subscription capabilities and comprehensive REST API endpoints.</p>
 
         <a href="/docs" class="button">View API Documentation →</a>
