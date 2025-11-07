@@ -1,0 +1,549 @@
+basePath: /api/v1
+definitions:
+  bap.Address:
+    properties:
+      address:
+        type: string
+      block:
+        type: integer
+      txId:
+        type: string
+    type: object
+  bap.Identity:
+    properties:
+      _:
+        type: string
+      addresses:
+        items:
+          $ref: '#/definitions/bap.Address'
+        type: array
+      currentAddress:
+        type: string
+      firstSeen:
+        type: integer
+      idKey:
+        type: string
+      identity:
+        additionalProperties: {}
+        type: object
+      rootAddress:
+        type: string
+    type: object
+  bap.Profile:
+    properties:
+      _id:
+        type: string
+      data:
+        items:
+          type: integer
+        type: array
+    type: object
+  cmd_server.IdentityValidByAddressParams:
+    properties:
+      address:
+        example: 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa
+        type: string
+      block:
+        example: 123456
+        type: integer
+      timestamp:
+        example: 1612137600
+        type: integer
+    type: object
+  cmd_server.IdentityValidResponse:
+    properties:
+      identity:
+        $ref: '#/definitions/bap.Identity'
+      profile: {}
+      validityRecord:
+        $ref: '#/definitions/cmd_server.ValidityRecord'
+    type: object
+  cmd_server.Response:
+    properties:
+      message:
+        example: Operation completed successfully
+        type: string
+      result: {}
+      status:
+        example: OK
+        type: string
+    type: object
+  cmd_server.ValidityRecord:
+    properties:
+      block:
+        example: 123456
+        type: integer
+      timestamp:
+        example: 1612137600
+        type: integer
+      valid:
+        example: true
+        type: boolean
+    type: object
+host: localhost:3000
+info:
+  contact:
+    email: support@your-domain.com
+    name: API Support
+    url: https://your-domain.com/support
+  description: Bitcoin SV Overlay Service for BAP (Bitcoin Attestation Protocol) identities
+    and BSocial interactions. Provides real-time subscription capabilities and REST
+    API endpoints for identity verification and social data lookup.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: https://your-domain.com/terms
+  title: BSocial Overlay API
+  version: "1.0"
+paths:
+  /autofill:
+    get:
+      consumes:
+      - application/json
+      description: Fast combined search across identities (top 3) and posts (top 10)
+        for autocomplete/autofill functionality. Results cached for 15 minutes.
+      parameters:
+      - description: Search query
+        in: query
+        name: q
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Combined search results
+          schema:
+            allOf:
+            - $ref: '#/definitions/cmd_server.Response'
+            - properties:
+                result:
+                  properties:
+                    identities:
+                      items:
+                        $ref: '#/definitions/bap.Identity'
+                      type: array
+                    posts:
+                      items:
+                        type: object
+                      type: array
+                  type: object
+              type: object
+        "500":
+          description: Search failed
+          schema:
+            $ref: '#/definitions/cmd_server.Response'
+      summary: Autofill search
+      tags:
+      - Search
+  /docs:
+    get:
+      description: Interactive API documentation powered by Scalar
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML documentation page
+          schema:
+            type: string
+      summary: API Documentation UI
+      tags:
+      - Documentation
+  /identity/get:
+    post:
+      consumes:
+      - application/json
+      description: Retrieve a complete BAP identity by its ID key (BapId)
+      parameters:
+      - description: Identity request with idKey field
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            idKey:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Identity details including addresses, profile, and attestations
+          schema:
+            allOf:
+            - $ref: '#/definitions/cmd_server.Response'
+            - properties:
+                result:
+                  $ref: '#/definitions/bap.Identity'
+              type: object
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/cmd_server.Response'
+        "404":
+          description: Identity not found
+          schema:
+            $ref: '#/definitions/cmd_server.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/cmd_server.Response'
+      summary: Get identity by ID
+      tags:
+      - Identity
+  /identity/search:
+    get:
+      consumes:
+      - application/json
+      description: Search for BAP identities using full-text search with MongoDB Atlas
+        Search
+      parameters:
+      - description: Search query
+        in: query
+        name: q
+        required: true
+        type: string
+      - default: 20
+        description: Results limit
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Results offset for pagination
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of matching identities
+          schema:
+            allOf:
+            - $ref: '#/definitions/cmd_server.Response'
+            - properties:
+                result:
+                  items:
+                    $ref: '#/definitions/bap.Identity'
+                  type: array
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/cmd_server.Response'
+      summary: Search identities
+      tags:
+      - Identity
+  /identity/validByAddress:
+    post:
+      consumes:
+      - application/json
+      description: Check if an address was valid for a specific identity at a given
+        block height or timestamp. Used for temporal identity verification with address
+        rotation support.
+      parameters:
+      - description: Validation parameters (if block and timestamp are 0, uses current
+          block)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/cmd_server.IdentityValidByAddressParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Validation result with identity details
+          schema:
+            allOf:
+            - $ref: '#/definitions/cmd_server.Response'
+            - properties:
+                result:
+                  $ref: '#/definitions/cmd_server.IdentityValidResponse'
+              type: object
+        "404":
+          description: Identity not found
+          schema:
+            $ref: '#/definitions/cmd_server.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/cmd_server.Response'
+      summary: Validate identity by address
+      tags:
+      - Identity
+  /ingest:
+    post:
+      consumes:
+      - application/octet-stream
+      description: Submit a raw BSV transaction for processing. Transaction is validated,
+        input transactions loaded from BEEF store, converted to BEEF format, and submitted
+        to overlay engine for BAP/BSocial indexing.
+      parameters:
+      - description: Raw transaction bytes
+        in: body
+        name: transaction
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Transaction accepted with TXID
+          schema:
+            allOf:
+            - $ref: '#/definitions/cmd_server.Response'
+            - properties:
+                result:
+                  properties:
+                    txid:
+                      type: string
+                  type: object
+              type: object
+        "400":
+          description: Invalid transaction data
+          schema:
+            $ref: '#/definitions/cmd_server.Response'
+        "404":
+          description: Input transaction not found in BEEF store
+          schema:
+            $ref: '#/definitions/cmd_server.Response'
+        "500":
+          description: Failed to process transaction
+          schema:
+            $ref: '#/definitions/cmd_server.Response'
+      summary: Ingest raw transaction
+      tags:
+      - Transaction
+  /openapi.json:
+    get:
+      description: Returns the OpenAPI 3.0 specification in JSON format
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OpenAPI 3.0 specification
+          schema:
+            type: object
+      summary: Serve OpenAPI specification
+      tags:
+      - Documentation
+  /person/{field}/{bapId}:
+    get:
+      consumes:
+      - application/json
+      description: 'Retrieve and proxy an image from a profile field (e.g., avatar,
+        header). Supports multiple formats: bitfs://, ORDFS URLs, data URLs, HTTP
+        URLs, and raw TxIDs. Returns default avatar if field is empty.'
+      parameters:
+      - description: Profile field name (e.g., 'avatar', 'header', 'banner')
+        in: path
+        name: field
+        required: true
+        type: string
+      - description: BAP Identity ID
+        in: path
+        name: bapId
+        required: true
+        type: string
+      produces:
+      - image/jpeg
+      - image/png
+      - image/gif
+      - image/webp
+      responses:
+        "200":
+          description: Image data with appropriate Content-Type header
+          schema:
+            type: file
+        "400":
+          description: Invalid field or BAPID
+          schema:
+            $ref: '#/definitions/cmd_server.Response'
+        "404":
+          description: Profile not found
+          schema:
+            $ref: '#/definitions/cmd_server.Response'
+        "500":
+          description: Internal server error or failed to fetch image
+          schema:
+            $ref: '#/definitions/cmd_server.Response'
+      summary: Get profile image field
+      tags:
+      - Profile
+  /post/search:
+    get:
+      consumes:
+      - application/json
+      description: Search for BSocial posts using full-text search with MongoDB Atlas
+        Search
+      parameters:
+      - description: Search query
+        in: query
+        name: q
+        required: true
+        type: string
+      - default: 20
+        description: Results limit
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Results offset for pagination
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of matching posts with BMAP data
+          schema:
+            allOf:
+            - $ref: '#/definitions/cmd_server.Response'
+            - properties:
+                result:
+                  items:
+                    type: object
+                  type: array
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/cmd_server.Response'
+      summary: Search posts
+      tags:
+      - Post
+  /profile:
+    get:
+      consumes:
+      - application/json
+      description: Get a paginated list of BAP profiles with their identity data
+      parameters:
+      - default: 20
+        description: Results limit
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Results offset for pagination
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of profiles
+          schema:
+            allOf:
+            - $ref: '#/definitions/cmd_server.Response'
+            - properties:
+                result:
+                  items:
+                    $ref: '#/definitions/bap.Profile'
+                  type: array
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/cmd_server.Response'
+      summary: List profiles
+      tags:
+      - Profile
+  /profile/{bapId}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve profile data for a specific BAP identity
+      parameters:
+      - description: BAP Identity ID
+        in: path
+        name: bapId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Profile data as key-value map
+          schema:
+            allOf:
+            - $ref: '#/definitions/cmd_server.Response'
+            - properties:
+                result:
+                  type: object
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/cmd_server.Response'
+      summary: Get profile by BAP ID
+      tags:
+      - Profile
+  /subscribe/{topics}:
+    get:
+      description: Subscribe to real-time overlay updates via Server-Sent Events (SSE).
+        Streams updates from Redis PubSub channels for specified topics. Connection
+        is long-lived and automatically cleaned up on disconnect.
+      parameters:
+      - description: Comma-separated topic list (e.g., 'tm_bap,tm_bsocial')
+        in: path
+        name: topics
+        required: true
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: 'Event stream with SSE format: id (timestamp), event (channel),
+            data (payload)'
+          headers:
+            Cache-Control:
+              description: no-cache
+              type: string
+            Connection:
+              description: keep-alive
+              type: string
+            Content-Type:
+              description: text/event-stream
+              type: string
+          schema:
+            type: string
+        "400":
+          description: Missing topics parameter
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: No topics provided
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Subscribe to real-time updates
+      tags:
+      - Subscription
+schemes:
+- http
+- https
+securityDefinitions:
+  ApiKeyAuth:
+    description: Authentication token using Bitcoin Signed Message (BSM)
+    in: header
+    name: X-Auth-Token
+    type: apiKey
+swagger: "2.0"

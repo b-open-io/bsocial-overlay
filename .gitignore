@@ -24,3 +24,6 @@ go.work.sum
 # env file
 .env
 *.run
+
+# Internal notes and documentation
+/notes/
