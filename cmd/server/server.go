@@ -1,16 +1,31 @@
 package main
 
+// @title BSocial Overlay API
+// @version 1.0
+// @description Bitcoin SV Overlay Service for BAP (Bitcoin Attestation Protocol) identities and BSocial interactions. Provides real-time subscription capabilities and REST API endpoints for identity verification and social data lookup.
+// @termsOfService https://your-domain.com/terms
+
+// @contact.name API Support
+// @contact.url https://your-domain.com/support
+// @contact.email support@your-domain.com
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host localhost:3000
+// @BasePath /api/v1
+// @schemes http https
+
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name X-Auth-Token
+// @description Authentication token using Bitcoin Signed Message (BSM)
+
 import (
-	"bufio"
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"log"
-	"mime"
-	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -18,6 +33,7 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/b-open-io/bsocial-overlay/docs" // Import generated docs
 	"github.com/b-open-io/bsocial-overlay/bap"
 	"github.com/b-open-io/bsocial-overlay/bsocial"
 	"github.com/b-open-io/overlay/beef"
@@ -25,8 +41,6 @@ import (
 	"github.com/b-open-io/overlay/storage"
 	"github.com/bsv-blockchain/go-overlay-services/pkg/core/engine"
 	"github.com/bsv-blockchain/go-overlay-services/pkg/server"
-	"github.com/bsv-blockchain/go-sdk/overlay"
-	"github.com/bsv-blockchain/go-sdk/transaction"
 	"github.com/bsv-blockchain/go-sdk/transaction/broadcaster"
 	"github.com/bsv-blockchain/go-sdk/transaction/chaintracker/headers_client"
 	"github.com/gofiber/fiber/v2"
@@ -179,513 +193,38 @@ func main() {
 		Engine:           e,
 	})
 
+	// Initialize handlers with dependencies
+	getCurrentBlock := func() uint32 {
+		if currentBlock != nil {
+			return currentBlock.Height
+		}
+		return 0
+	}
+	handlers := NewHandlers(
+		bapLookup,
+		bsocialLookup,
+		beefStore,
+		e,
+		cache,
+		&getCurrentBlock,
+		PORT,
+		subscribe,
+		unsubscribe,
+	)
+
 	// Register custom routes
-	app.Post("/api/v1/ingest", func(c *fiber.Ctx) error {
-		if tx, err := transaction.NewTransactionFromBytes(c.Body()); err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(Response{
-				Status:  "ERROR",
-				Message: "Invalid transaction data: " + err.Error(),
-			})
-		} else {
-			for _, input := range tx.Inputs {
-				if sourceBeef, err := beefStore.LoadBeef(c.Context(), input.SourceTXID); err != nil {
-					return c.Status(fiber.StatusNotFound).JSON(Response{
-						Status:  "ERROR",
-						Message: "Failed to load input transaction: " + err.Error(),
-					})
-				} else if input.SourceTransaction, err = transaction.NewTransactionFromBEEF(sourceBeef); err != nil {
-					return c.Status(fiber.StatusInternalServerError).JSON(Response{
-						Status:  "ERROR",
-						Message: "Failed to parse input transaction: " + err.Error(),
-					})
-				}
-			}
-			taggedBeef := overlay.TaggedBEEF{
-				Topics: []string{"tm_bap", "tm_bsocial"},
-			}
-
-			if taggedBeef.Beef, err = tx.AtomicBEEF(false); err != nil {
-				return c.Status(fiber.StatusInternalServerError).JSON(Response{
-					Status:  "ERROR",
-					Message: "Failed to generate BEEF: " + err.Error(),
-				})
-			} else if _, err := e.Submit(ctx, taggedBeef, engine.SubmitModeHistorical, nil); err != nil {
-				return c.Status(fiber.StatusInternalServerError).JSON(Response{
-					Status:  "ERROR",
-					Message: "Failed to submit transaction: " + err.Error(),
-				})
-			} else {
-				return c.JSON(Response{
-					Status: "OK",
-					Result: map[string]any{
-						"txid": tx.TxID().String(),
-					},
-				})
-			}
-		}
-	})
-
-	app.Get("/api/v1/autofill", func(c *fiber.Ctx) error {
-		q := c.Query("q")
-
-		if cache != nil {
-			if cached, err := cache.HGet(c.Context(), "autofill", q).Result(); err != nil {
-				log.Println("Cache error:", err)
-			} else if cached != "" {
-				return c.JSON(Response{
-					Status: "OK",
-					Result: json.RawMessage(cached),
-				})
-			}
-		}
-
-		if identities, err := bapLookup.Search(c.Context(), q, 3, 0); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(Response{
-				Status:  "ERROR",
-				Message: "Failed to search identities: " + err.Error(),
-			})
-		} else if posts, err := bsocialLookup.Search(c.Context(), q, 10, 0); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(Response{
-				Status:  "ERROR",
-				Message: "Failed to search posts: " + err.Error(),
-			})
-		} else {
-
-			if result, err := json.Marshal(map[string]any{
-				"identities": identities,
-				"posts":      posts,
-			}); err != nil {
-				return c.Status(fiber.StatusInternalServerError).JSON(Response{
-					Status:  "ERROR",
-					Message: "Failed to marshal result: " + err.Error(),
-				})
-			} else {
-				if cache != nil {
-					cache.Pipelined(c.Context(), func(pipe redis.Pipeliner) error {
-						pipe.HSet(c.Context(), "autofill", q, result)
-						pipe.HExpire(c.Context(), "autofill", 15*time.Minute, q)
-						return nil
-					})
-				}
-				return c.JSON(Response{
-					Status: "OK",
-					Result: json.RawMessage(result),
-				})
-			}
-		}
-	})
-
-	app.Get("/api/v1/identity/search", func(c *fiber.Ctx) error {
-		q := c.Query("q")
-		limit := c.QueryInt("limit", 20)  // Default limit is 20
-		offset := c.QueryInt("offset", 0) // Default offset is 0
-		if identities, err := bapLookup.Search(c.Context(), q, limit, offset); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(Response{
-				Status:  "ERROR",
-				Message: "Failed to search identities: " + err.Error(),
-			})
-		} else {
-			// Return the list of identities
-			return c.JSON(Response{
-				Status: "OK",
-				Result: identities,
-			})
-		}
-	})
-
-	app.Get("/api/v1/post/search", func(c *fiber.Ctx) error {
-		q := c.Query("q")
-		limit := c.QueryInt("limit", 20)  // Default limit is 20
-		offset := c.QueryInt("offset", 0) // Default offset is 0
-		if posts, err := bsocialLookup.Search(c.Context(), q, limit, offset); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(Response{
-				Status:  "ERROR",
-				Message: "Failed to search identities: " + err.Error(),
-			})
-		} else {
-			// Return the list of identities
-			return c.JSON(Response{
-				Status: "OK",
-				Result: posts,
-			})
-		}
-	})
-
-	app.Post("/api/v1/identity/validByAddress", func(c *fiber.Ctx) error {
-		req := &IdentityValidByAddressParams{}
-		c.BodyParser(&req)
-		if req.Block == 0 && req.Timestamp == 0 {
-			req.Block = currentBlock.Height
-			req.Timestamp = currentBlock.Header.Timestamp
-		}
-
-		if id, err := bapLookup.LoadIdentityByAddress(c.Context(), req.Address); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(Response{
-				Status:  "ERROR",
-				Message: err.Error(),
-			})
-		} else if id == nil {
-			return c.Status(fiber.StatusNotFound).JSON(Response{
-				Status:  "ERROR",
-				Message: fmt.Sprintf("Identity not found for address %s", req.Address),
-			})
-		} else if req.Block > 0 {
-			currentAddress := ""
-			for _, addr := range id.Addresses {
-				if addr.Block <= req.Block {
-					currentAddress = addr.Address
-				} else {
-					break
-				}
-			}
-			if currentAddress != req.Address {
-				return c.JSON(Response{
-					Status: "OK",
-					Result: IdentityValidResponse{
-						Identity: *id,
-						ValidityRecord: ValidityRecord{
-							Valid:     false,
-							Block:     req.Block,
-							Timestamp: req.Timestamp,
-						},
-					},
-				})
-			} else {
-				return c.JSON(Response{
-					Status: "OK",
-					Result: IdentityValidResponse{
-						Identity: *id,
-						ValidityRecord: ValidityRecord{
-							Valid:     true,
-							Block:     req.Block,
-							Timestamp: req.Timestamp,
-						},
-						Profile: id.Profile,
-					},
-				})
-			}
-		} else {
-			currentAddress := ""
-			for _, addr := range id.Addresses {
-				if addr.Timestamp <= req.Timestamp {
-					currentAddress = addr.Address
-				} else {
-					break
-				}
-			}
-			if currentAddress != req.Address {
-				return c.JSON(Response{
-					Status: "OK",
-					Result: IdentityValidResponse{
-						Identity: *id,
-						ValidityRecord: ValidityRecord{
-							Valid:     false,
-							Block:     req.Block,
-							Timestamp: req.Timestamp,
-						},
-					},
-				})
-			} else {
-				return c.JSON(Response{
-					Status: "OK",
-					Result: IdentityValidResponse{
-						Identity: *id,
-						ValidityRecord: ValidityRecord{
-							Valid:     true,
-							Block:     req.Block,
-							Timestamp: req.Timestamp,
-						},
-						Profile: id.Profile,
-					},
-				})
-			}
-		}
-	})
-
-	app.Get("/api/v1/person/:field/:bapId", func(c *fiber.Ctx) error {
-		field := c.Params("field")
-		if field == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(Response{
-				Status:  "ERROR",
-				Message: "Field is required",
-			})
-		}
-
-		bapId := c.Params("bapId")
-		if bapId == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(Response{
-				Status:  "ERROR",
-				Message: "BAPID is required",
-			})
-		}
-		var data map[string]any
-		if id, err := bapLookup.LoadIdentityById(c.Context(), bapId); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(Response{
-				Status:  "ERROR",
-				Message: err.Error(),
-			})
-		} else if id == nil || id.Profile == nil {
-			return c.Status(fiber.StatusNotFound).JSON(Response{
-				Status:  "ERROR",
-				Message: fmt.Sprintf("Profile not found for BAPID %s", bapId),
-			})
-		} else {
-			data = id.Profile
-		}
-
-		imageUrl, imageExists := data[field].(string)
-		if !imageExists || strings.TrimSpace(imageUrl) == "" {
-			// return the default image url
-			imageUrl = "/096b5fdcb6e88f8f0325097acca2784eabd62cd4d1e692946695060aff3d6833_7"
-		}
-
-		// Check if the imageUrl is a raw txid (64 character hex string)
-		if len(imageUrl) == 64 && !strings.HasPrefix(imageUrl, "/") && !strings.HasPrefix(imageUrl, "http") && !strings.HasPrefix(imageUrl, "data:") {
-			imageUrl = "/" + imageUrl
-		}
-
-		if strings.HasPrefix(imageUrl, "data:") {
-			// Handle base64-encoded data URL
-			commaIndex := strings.Index(imageUrl, ",")
-			if commaIndex < 0 {
-				return c.Status(fiber.StatusBadRequest).JSON(Response{
-					Status:  "ERROR",
-					Message: "Invalid data URL format",
-				})
-			}
-
-			// Extract the metadata and data
-			// Remove "data:" prefix from metaData
-			metaData := strings.TrimPrefix(imageUrl[:commaIndex], "data:")
-			// metadata = image/jpeg;base64
-			metaDataParts := strings.Split(metaData, ";")
-
-			metaData = metaDataParts[0]
-			// metadata = image/jpeg
-
-			base64Data := imageUrl[commaIndex+1:]
-
-			// Parse the media type from the metadata
-			mediaType, _, err := mime.ParseMediaType(metaData)
-			if err != nil {
-				return c.Status(fiber.StatusBadRequest).JSON(Response{
-					Status:  "ERROR",
-					Message: "Invalid media type in data URL " + metaData + " " + err.Error(),
-				})
-			}
-
-			// image/jpeg;base64
-			log.Println(("Data URL: " + base64Data))
-
-			// Decode the base64 data
-			imgData, err := base64.StdEncoding.DecodeString(base64Data)
-			if err != nil {
-				return c.Status(fiber.StatusBadRequest).JSON(Response{
-					Status:  "ERROR",
-					Message: "Failed to decode base64 image data",
-				})
-			}
-
-			// Set the Content-Type header
-			c.Set("Content-Type", mediaType)
-
-			// Return the image data
-			return c.Send(imgData)
-		} else {
-			// Handle regular image URL
-			// If the image URL uses a custom protocol (e.g., bitfs://), handle it accordingly
-			// Handle regular image URL
-			if strings.HasPrefix(imageUrl, "bitfs://") {
-				// Convert bitfs://<txid>.out.<vout>.<script_chunk> to https://ordfs.network/<txid>_<vout>
-				baseUrl := "https://ordfs.network/"
-				// Remove the "bitfs://" prefix
-				path := strings.TrimPrefix(imageUrl, "bitfs://")
-				// Split the path by "."
-				parts := strings.Split(path, ".")
-				if len(parts) >= 3 && parts[1] == "out" {
-					txid := parts[0]
-					// vout := parts[2]
-					// Construct the new URL
-					imageUrl = baseUrl + txid // + "_" + vout
-				} else {
-					// Handle error: unexpected format
-					return c.Status(fiber.StatusBadRequest).JSON(Response{
-						Status:  "ERROR",
-						Message: "Invalid bitfs URL format",
-					})
-				}
-			}
-
-			// Fetch the image data from the URL
-			// if imageUrl.startsWith
-			if strings.HasPrefix(imageUrl, "/") {
-				imageUrl = "https://ordfs.network" + imageUrl
-			}
-
-			resp, err := http.Get(imageUrl)
-			if err != nil {
-				return c.Status(fiber.StatusInternalServerError).JSON(Response{
-					Status:  "ERROR",
-					Message: "Failed to fetch image at " + imageUrl + err.Error(),
-				})
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode != http.StatusOK {
-				return c.Status(fiber.StatusNotFound).JSON(Response{
-					Status:  "ERROR",
-					Message: "Image not found at the specified URL",
-				})
-			}
-
-			// Read the image data
-			imgData, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return c.Status(fiber.StatusInternalServerError).JSON(Response{
-					Status:  "ERROR",
-					Message: "Failed to read image data",
-				})
-			}
-
-			// Determine the content type
-			contentType := resp.Header.Get("Content-Type")
-			if contentType == "" {
-				// Fallback to detecting content type from data
-				contentType = http.DetectContentType(imgData)
-			}
-
-			// Set the appropriate content type header
-			c.Set("Content-Type", contentType)
-
-			// Return the image data as the response
-			return c.Send(imgData)
-		}
-	})
-
-	app.Get("/api/v1/profile", func(c *fiber.Ctx) error {
-		// Default pagination parameters
-		offset := c.QueryInt("offset", 0) // Default offset is 0
-		limit := c.QueryInt("limit", 20)  // Set a default limit
-
-		if profiles, err := bapLookup.LoadProfiles(c.Context(), limit, offset); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(Response{
-				Status:  "ERROR",
-				Message: "Failed to fetch profiles: " + err.Error(),
-			})
-		} else {
-			// Return the list of profiles
-			return c.JSON(Response{
-				Status: "OK",
-				Result: profiles,
-			})
-		}
-	})
-
-	app.Get("/api/v1/profile/:bapId", func(c *fiber.Ctx) error {
-		bapId := c.Params("bapId")
-		if identity, err := bapLookup.LoadIdentityById(c.Context(), bapId); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(Response{
-				Status:  "ERROR",
-				Message: "Failed to fetch profiles: " + err.Error(),
-			})
-		} else {
-			// Return the list of profiles
-			return c.JSON(Response{
-				Status: "OK",
-				Result: identity.Profile,
-			})
-		}
-	})
-
-	app.Post("/api/v1/identity/get", func(c *fiber.Ctx) error {
-		req := map[string]string{}
-		if err := c.BodyParser(&req); err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(Response{
-				Status:  "ERROR",
-				Message: "Invalid request body: " + err.Error(),
-			})
-		} else if id, err := bapLookup.LoadIdentityById(c.Context(), req["idKey"]); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(Response{
-				Status:  "ERROR",
-				Message: "Failed to fetch identity: " + err.Error(),
-			})
-		} else if id == nil {
-			return c.Status(fiber.StatusNotFound).JSON(Response{
-				Status:  "ERROR",
-				Message: "Identity not found for ID key: " + req["idKey"],
-			})
-		} else {
-			return c.JSON(Response{
-				Status: "OK",
-				Result: id,
-			})
-		}
-	})
-
-	app.Get("/api/v1/subscribe/:topics", func(c *fiber.Ctx) error {
-		topicsParam := c.Params("topics")
-		if topicsParam == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "Missing topics",
-			})
-		}
-		topics := strings.Split(topicsParam, ",")
-		if len(topics) == 0 {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error": "No topics provided",
-			})
-		}
-
-		// Set headers for SSE
-		c.Set("Content-Type", "text/event-stream")
-		c.Set("Cache-Control", "no-cache")
-		c.Set("Connection", "keep-alive")
-		c.Set("Transfer-Encoding", "chunked")
-
-		// Add the client to the topicClients map
-		subReq := &subRequest{
-			topics:  topics,
-			msgChan: make(chan *redis.Message, 25),
-		}
-		subscribe <- subReq
-
-		// Create a channel to detect when connection is closed
-		disconnected := make(chan struct{})
-
-		ctx := c.Context()
-		ctx.SetBodyStreamWriter(func(w *bufio.Writer) {
-			fmt.Println("Client connected for topics:", topics)
-
-			// Start a goroutine to detect when connection is closed
-			go func() {
-				<-ctx.Done()
-				fmt.Println("Context done, closing connection for topics:", topics)
-				unsubscribe <- subReq
-				close(disconnected)
-			}()
-
-			// Keep writing messages until disconnection
-			for {
-				select {
-				case <-disconnected:
-					return
-				case msg := <-subReq.msgChan:
-					fmt.Fprintf(w, "id: %d\n", time.Now().UnixNano())
-					fmt.Fprintf(w, "event: %s\n", msg.Channel)
-					fmt.Fprintf(w, "data: %s\n\n", msg.Payload)
-
-					if err := w.Flush(); err != nil {
-						fmt.Printf("Error while flushing: %v. Closing connection.\n", err)
-						unsubscribe <- subReq
-						return
-					}
-				}
-			}
-		})
-
-		// Critical: Return nil but DON'T execute any code after the SetBodyStreamWriter
-		return nil
-	})
+	app.Post("/api/v1/ingest", handlers.IngestTransaction)
+	app.Get("/api/v1/autofill", handlers.Autofill)
+	app.Get("/api/v1/identity/search", handlers.SearchIdentities)
+	app.Get("/api/v1/post/search", handlers.SearchPosts)
+	app.Post("/api/v1/identity/validByAddress", handlers.ValidateIdentityByAddress)
+	app.Get("/api/v1/person/:field/:bapId", handlers.GetPersonImageField)
+	app.Get("/api/v1/profile", handlers.ListProfiles)
+	app.Get("/api/v1/profile/:bapId", handlers.GetProfileByBapId)
+	app.Post("/api/v1/identity/get", handlers.GetIdentity)
+	app.Get("/api/v1/subscribe/:topics", handlers.SubscribeToTopics)
+	app.Get("/openapi.json", handlers.ServeOpenAPISpec)
+	app.Get("/docs", handlers.ServeDocumentation)
 
 	// Start the Redis PubSub goroutine
 	go func() {
