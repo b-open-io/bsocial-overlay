@@ -13,7 +13,7 @@ package main
 // @license.url https://opensource.org/licenses/MIT
 
 // @host localhost:3000
-// @BasePath /api/v1
+// @BasePath /v1
 // @schemes http https
 
 // @securityDefinitions.apikey ApiKeyAuth
@@ -214,16 +214,16 @@ func main() {
 
 	// Register custom routes
 	app.Get("/", handlers.ServeLandingPage)
-	app.Post("/api/v1/ingest", handlers.IngestTransaction)
-	app.Get("/api/v1/autofill", handlers.Autofill)
-	app.Get("/api/v1/identity/search", handlers.SearchIdentities)
-	app.Get("/api/v1/post/search", handlers.SearchPosts)
-	app.Post("/api/v1/identity/validByAddress", handlers.ValidateIdentityByAddress)
-	app.Get("/api/v1/person/:field/:bapId", handlers.GetPersonImageField)
-	app.Get("/api/v1/profile", handlers.ListProfiles)
-	app.Get("/api/v1/profile/:bapId", handlers.GetProfileByBapId)
-	app.Post("/api/v1/identity/get", handlers.GetIdentity)
-	app.Get("/api/v1/subscribe/:topics", handlers.SubscribeToTopics)
+	app.Post("/v1/ingest", handlers.IngestTransaction)
+	app.Get("/v1/autofill", handlers.Autofill)
+	app.Get("/v1/identity/search", handlers.SearchIdentities)
+	app.Get("/v1/post/search", handlers.SearchPosts)
+	app.Post("/v1/identity/validByAddress", handlers.ValidateIdentityByAddress)
+	app.Get("/v1/person/:field/:bapId", handlers.GetPersonImageField)
+	app.Get("/v1/profile", handlers.ListProfiles)
+	app.Get("/v1/profile/:bapId", handlers.GetProfileByBapId)
+	app.Post("/v1/identity/get", handlers.GetIdentity)
+	app.Get("/v1/subscribe/:topics", handlers.SubscribeToTopics)
 	app.Get("/openapi.json", handlers.ServeOpenAPISpec)
 	app.Get("/docs", handlers.ServeDocumentation)
 

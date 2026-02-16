@@ -41,11 +41,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Data Flow
 
-1. **Ingestion**: Transactions arrive via Junglebus subscription or `/api/v1/ingest` endpoint
+1. **Ingestion**: Transactions arrive via Junglebus subscription or `/v1/ingest` endpoint
 2. **Topic Manager**: Determines which outputs are admissible for BAP/BSocial topics
 3. **Lookup Service**: Processes admitted outputs and updates MongoDB collections
 4. **Publishing**: Changes broadcast to Redis PubSub channels
-5. **SSE Streaming**: Connected clients receive real-time updates via `/api/v1/subscribe/:topics`
+5. **SSE Streaming**: Connected clients receive real-time updates via `/v1/subscribe/:topics`
 
 ### Storage Architecture
 
@@ -160,25 +160,25 @@ ARC_CALLBACK_TOKEN=your_callback_token
 
 ### Identity Endpoints
 
-- `POST /api/v1/identity/get` - Get identity by ID key
-- `GET /api/v1/identity/search?q=query&limit=20&offset=0` - Search identities
-- `POST /api/v1/identity/validByAddress` - Validate identity address at block/timestamp
+- `POST /v1/identity/get` - Get identity by ID key
+- `GET /v1/identity/search?q=query&limit=20&offset=0` - Search identities
+- `POST /v1/identity/validByAddress` - Validate identity address at block/timestamp
 
 ### Profile Endpoints
 
-- `GET /api/v1/profile?limit=20&offset=0` - List profiles
-- `GET /api/v1/profile/:bapId` - Get profile by BAP ID
-- `GET /api/v1/person/:field/:bapId` - Get profile field as image (avatar, header, etc.)
+- `GET /v1/profile?limit=20&offset=0` - List profiles
+- `GET /v1/profile/:bapId` - Get profile by BAP ID
+- `GET /v1/person/:field/:bapId` - Get profile field as image (avatar, header, etc.)
 
 ### Post Endpoints
 
-- `GET /api/v1/post/search?q=query&limit=20&offset=0` - Search posts
+- `GET /v1/post/search?q=query&limit=20&offset=0` - Search posts
 
 ### Utility Endpoints
 
-- `GET /api/v1/autofill?q=query` - Search identities and posts (cached)
-- `POST /api/v1/ingest` - Ingest raw transaction
-- `GET /api/v1/subscribe/:topics` - Subscribe to real-time updates (SSE)
+- `GET /v1/autofill?q=query` - Search identities and posts (cached)
+- `POST /v1/ingest` - Ingest raw transaction
+- `GET /v1/subscribe/:topics` - Subscribe to real-time updates (SSE)
 
 ### Documentation Endpoints
 
@@ -231,7 +231,7 @@ Transactions are stored and transmitted in BEEF format, which includes:
 
 ### Image URL Formats
 
-The `/api/v1/person/:field/:bapId` endpoint handles:
+The `/v1/person/:field/:bapId` endpoint handles:
 - `bitfs://` URLs → converts to ORDFS network URLs
 - Raw TxIDs → prefixes with `/` and fetches from ORDFS
 - `data:` URLs → decodes base64 inline images
@@ -248,7 +248,7 @@ Both BAP and BSocial lookup services use MongoDB Atlas Search for full-text quer
 ## Real-time Subscriptions
 
 Server implements custom SSE (Server-Sent Events) for real-time updates:
-1. Client connects to `/api/v1/subscribe/tm_bap,tm_bsocial`
+1. Client connects to `/v1/subscribe/tm_bap,tm_bsocial`
 2. Server subscribes to Redis PubSub channels matching topics
 3. Messages broadcast to all connected clients on matching topics
 4. Automatic cleanup on client disconnect

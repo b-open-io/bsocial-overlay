@@ -1,4 +1,4 @@
-basePath: /api/v1
+basePath: /v1
 definitions:
   bap.Address:
     properties:
@@ -96,6 +96,19 @@ info:
   title: BSocial Overlay API
   version: "1.0"
 paths:
+  /:
+    get:
+      description: Beautiful landing page with Sigma branding and link to API documentation
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML landing page
+          schema:
+            type: string
+      summary: Landing page
+      tags:
+      - Documentation
   /autofill:
     get:
       consumes:
