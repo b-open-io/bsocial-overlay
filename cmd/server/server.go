@@ -219,6 +219,7 @@ func main() {
 	app.Get("/v1/identity/search", handlers.SearchIdentities)
 	app.Get("/v1/post/search", handlers.SearchPosts)
 	app.Post("/v1/identity/validByAddress", handlers.ValidateIdentityByAddress)
+	app.Post("/v1/identity/from-address", handlers.ValidateIdentityByAddress)
 	app.Get("/v1/person/:field/:bapId", handlers.GetPersonImageField)
 	app.Get("/v1/profile", handlers.ListProfiles)
 	app.Get("/v1/profile/:bapId", handlers.GetProfileByBapId)
