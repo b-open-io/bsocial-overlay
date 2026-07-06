@@ -8,9 +8,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/bsv-blockchain/go-overlay-services/pkg/core/engine"
 	"github.com/b-open-io/overlay/publish"
 	"github.com/bitcoinschema/go-bmap"
+	"github.com/bsv-blockchain/go-overlay-services/pkg/core/engine"
 	"github.com/bsv-blockchain/go-sdk/chainhash"
 	"github.com/bsv-blockchain/go-sdk/overlay"
 	"github.com/bsv-blockchain/go-sdk/overlay/lookup"
@@ -46,6 +46,14 @@ func NewLookupService(connString string, dbName string, pub publish.Publisher) (
 			[]mongo.IndexModel{
 				{Keys: bson.M{"timestamp": -1}},
 				{Keys: bson.D{{Key: "AIP.address", Value: 1}, {Key: "timestamp", Value: -1}}, Options: options.Index().SetSparse(true)},
+				{Keys: bson.D{{Key: "MAP.tx", Value: 1}, {Key: "timestamp", Value: -1}}, Options: options.Index().SetSparse(true)},
+			},
+		); err != nil {
+			return nil, err
+		}
+		if _, err := db.Collection("unlike").Indexes().CreateMany(
+			context.Background(),
+			[]mongo.IndexModel{
 				{Keys: bson.D{{Key: "MAP.tx", Value: 1}, {Key: "timestamp", Value: -1}}, Options: options.Index().SetSparse(true)},
 			},
 		); err != nil {
@@ -180,6 +188,234 @@ func (l *LookupService) Search(ctx context.Context, query string, limit int, off
 	}
 
 	return identities, nil
+}
+
+type FollowingResult struct {
+	IDKey  string `json:"idKey"`
+	Txid   string `json:"txid"`
+	Height uint32 `json:"height"`
+}
+
+type FollowerResult struct {
+	Address string `json:"address"`
+	Txid    string `json:"txid"`
+	Height  uint32 `json:"height"`
+}
+
+type followLookupDoc struct {
+	ID  string `bson:"_id"`
+	AIP []struct {
+		Address string `bson:"address"`
+	} `bson:"AIP"`
+	MAP []bson.M `bson:"MAP"`
+	Blk struct {
+		I uint32 `bson:"i"`
+	} `bson:"blk"`
+	Timestamp int64 `bson:"timestamp"`
+}
+
+func (l *LookupService) FollowingByAddress(ctx context.Context, address string) ([]FollowingResult, error) {
+	events, err := l.followEvents(ctx, bson.M{"AIP.address": address}, true)
+	if err != nil {
+		return nil, err
+	}
+
+	folded := FoldFollows(events)
+	result := make([]FollowingResult, 0, len(folded))
+	for _, event := range folded {
+		result = append(result, FollowingResult{
+			IDKey:  event.Key,
+			Txid:   event.Txid,
+			Height: event.Height,
+		})
+	}
+	return result, nil
+}
+
+func (l *LookupService) FollowersByIDKey(ctx context.Context, idKey string) ([]FollowerResult, error) {
+	events, err := l.followEvents(ctx, bson.M{"MAP.idKey": idKey}, false)
+	if err != nil {
+		return nil, err
+	}
+
+	folded := FoldFollows(events)
+	result := make([]FollowerResult, 0, len(folded))
+	for _, event := range folded {
+		result = append(result, FollowerResult{
+			Address: event.Key,
+			Txid:    event.Txid,
+			Height:  event.Height,
+		})
+	}
+	return result, nil
+}
+
+func (l *LookupService) LikesByAddresses(ctx context.Context, addresses []string, limit int, offset int) ([]map[string]any, error) {
+	cursor, err := l.db.Collection("like").Find(
+		ctx,
+		bson.M{"AIP.address": bson.M{"$in": addresses}},
+		options.Find().
+			SetSort(bson.D{{Key: "timestamp", Value: -1}}).
+			SetLimit(int64(limit)).
+			SetSkip(int64(offset)),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var docs []map[string]any
+	if err := cursor.All(ctx, &docs); err != nil {
+		return nil, err
+	}
+	return docs, nil
+}
+
+func (l *LookupService) LikeCountsByTxIDs(ctx context.Context, txids []string) (map[string]int, error) {
+	result := make(map[string]int, len(txids))
+	for _, txid := range txids {
+		result[txid] = 0
+	}
+
+	likes, err := l.aggregateReactionCounts(ctx, "like", "like", txids)
+	if err != nil {
+		return nil, err
+	}
+	unlikes, err := l.aggregateReactionCounts(ctx, "unlike", "unlike", txids)
+	if err != nil {
+		return nil, err
+	}
+
+	for txid, count := range likes {
+		result[txid] = count
+	}
+	for txid, count := range unlikes {
+		result[txid] -= count
+		if result[txid] < 0 {
+			result[txid] = 0
+		}
+	}
+
+	return result, nil
+}
+
+func (l *LookupService) followEvents(ctx context.Context, filter bson.M, keyIsIDKey bool) ([]FollowEvent, error) {
+	events := make([]FollowEvent, 0)
+	for _, collection := range []struct {
+		name      string
+		eventType string
+		unfollow  bool
+	}{
+		{name: "follow", eventType: "follow"},
+		{name: "unfollow", eventType: "unfollow", unfollow: true},
+	} {
+		cursor, err := l.db.Collection(collection.name).Find(
+			ctx,
+			filter,
+			options.Find().SetProjection(bson.M{
+				"_id":       1,
+				"AIP":       1,
+				"MAP":       1,
+				"blk.i":     1,
+				"timestamp": 1,
+			}),
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		for cursor.Next(ctx) {
+			var doc followLookupDoc
+			if err := cursor.Decode(&doc); err != nil {
+				cursor.Close(ctx)
+				return nil, err
+			}
+			mapEntry := mapEntryByType(doc.MAP, collection.eventType)
+			if mapEntry == nil {
+				continue
+			}
+			idKey := stringValue(mapEntry["idKey"])
+			if idKey == "" {
+				continue
+			}
+			address := firstAIPAddress(doc)
+			if address == "" {
+				continue
+			}
+
+			key := address
+			if keyIsIDKey {
+				key = idKey
+			}
+			events = append(events, FollowEvent{
+				Key:       key,
+				Txid:      doc.ID,
+				Height:    doc.Blk.I,
+				Timestamp: doc.Timestamp,
+				Unfollow:  collection.unfollow,
+			})
+		}
+		if err := cursor.Err(); err != nil {
+			cursor.Close(ctx)
+			return nil, err
+		}
+		cursor.Close(ctx)
+	}
+	return events, nil
+}
+
+func (l *LookupService) aggregateReactionCounts(ctx context.Context, collection string, eventType string, txids []string) (map[string]int, error) {
+	pipeline := mongo.Pipeline{
+		{{Key: "$match", Value: bson.M{"MAP.tx": bson.M{"$in": txids}}}},
+		{{Key: "$unwind", Value: "$MAP"}},
+		{{Key: "$match", Value: bson.M{"MAP.tx": bson.M{"$in": txids}, "MAP.type": eventType}}},
+		{{Key: "$unwind", Value: "$AIP"}},
+		{{Key: "$group", Value: bson.M{"_id": bson.M{"tx": "$MAP.tx", "addr": "$AIP.address"}}}},
+		{{Key: "$group", Value: bson.M{"_id": "$_id.tx", "count": bson.M{"$sum": 1}}}},
+	}
+
+	cursor, err := l.db.Collection(collection).Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	rows := make([]struct {
+		ID    string `bson:"_id"`
+		Count int    `bson:"count"`
+	}, 0)
+	if err := cursor.All(ctx, &rows); err != nil {
+		return nil, err
+	}
+
+	counts := make(map[string]int, len(rows))
+	for _, row := range rows {
+		counts[row.ID] = row.Count
+	}
+	return counts, nil
+}
+
+func mapEntryByType(entries []bson.M, eventType string) bson.M {
+	for _, entry := range entries {
+		if stringValue(entry["type"]) == eventType {
+			return entry
+		}
+	}
+	return nil
+}
+
+func firstAIPAddress(doc followLookupDoc) string {
+	if len(doc.AIP) == 0 {
+		return ""
+	}
+	return doc.AIP[0].Address
+}
+
+func stringValue(value any) string {
+	if s, ok := value.(string); ok {
+		return s
+	}
+	return ""
 }
 
 func PrepareForIngestion(bmapData *bmap.Tx) (bsonData bson.M, err error) {

@@ -33,9 +33,9 @@ import (
 	"syscall"
 	"time"
 
-	_ "github.com/b-open-io/bsocial-overlay/docs" // Import generated docs
 	"github.com/b-open-io/bsocial-overlay/bap"
 	"github.com/b-open-io/bsocial-overlay/bsocial"
+	_ "github.com/b-open-io/bsocial-overlay/docs" // Import generated docs
 	"github.com/b-open-io/overlay/beef"
 	"github.com/b-open-io/overlay/publish"
 	"github.com/b-open-io/overlay/storage"
@@ -218,6 +218,11 @@ func main() {
 	app.Get("/v1/autofill", handlers.Autofill)
 	app.Get("/v1/identity/search", handlers.SearchIdentities)
 	app.Get("/v1/post/search", handlers.SearchPosts)
+	app.Get("/v1/social/following/:address", handlers.GetFollowing)
+	app.Get("/v1/social/followers/:idKey", handlers.GetFollowers)
+	app.Get("/v1/social/addresses/:idKey", handlers.GetSocialAddresses)
+	app.Get("/v1/social/likes/count", handlers.GetLikeCounts)
+	app.Get("/v1/social/likes", handlers.GetLikes)
 	app.Post("/v1/identity/validByAddress", handlers.ValidateIdentityByAddress)
 	app.Post("/v1/identity/from-address", handlers.ValidateIdentityByAddress)
 	app.Get("/v1/person/:field/:bapId", handlers.GetPersonImageField)
