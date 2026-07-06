@@ -9,19 +9,20 @@ import (
 	"log"
 	"mime"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/b-open-io/bsocial-overlay/bap"
 	"github.com/b-open-io/bsocial-overlay/bsocial"
 	"github.com/b-open-io/overlay/beef"
+	scalar "github.com/bdpiprava/scalar-go"
 	"github.com/bsv-blockchain/go-overlay-services/pkg/core/engine"
 	"github.com/bsv-blockchain/go-sdk/overlay"
 	"github.com/bsv-blockchain/go-sdk/transaction"
 	"github.com/gofiber/fiber/v2"
 	"github.com/redis/go-redis/v9"
 	"github.com/swaggo/swag/v2"
-	scalar "github.com/bdpiprava/scalar-go"
 )
 
 // Handlers holds all HTTP handler dependencies
@@ -250,6 +251,229 @@ func (h *Handlers) SearchPosts(c *fiber.Ctx) error {
 		Status: "OK",
 		Result: posts,
 	})
+}
+
+// curl 'http://localhost:8080/v1/social/following/1ExampleAddress'
+func (h *Handlers) GetFollowing(c *fiber.Ctx) error {
+	address := c.Params("address")
+	if address == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(Response{
+			Status:  "ERROR",
+			Message: "address is required",
+		})
+	}
+
+	following, err := h.bsocialLookup.FollowingByAddress(c.Context(), address)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(Response{
+			Status:  "ERROR",
+			Message: "Failed to fetch following: " + err.Error(),
+		})
+	}
+
+	return c.JSON(Response{
+		Status: "OK",
+		Result: following,
+	})
+}
+
+// curl 'http://localhost:8080/v1/social/followers/example-id-key'
+func (h *Handlers) GetFollowers(c *fiber.Ctx) error {
+	idKey := c.Params("idKey")
+	if idKey == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(Response{
+			Status:  "ERROR",
+			Message: "idKey is required",
+		})
+	}
+
+	followers, err := h.bsocialLookup.FollowersByIDKey(c.Context(), idKey)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(Response{
+			Status:  "ERROR",
+			Message: "Failed to fetch followers: " + err.Error(),
+		})
+	}
+
+	return c.JSON(Response{
+		Status: "OK",
+		Result: followers,
+	})
+}
+
+// curl 'http://localhost:8080/v1/social/addresses/example-id-key'
+func (h *Handlers) GetSocialAddresses(c *fiber.Ctx) error {
+	idKey := c.Params("idKey")
+	if idKey == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(Response{
+			Status:  "ERROR",
+			Message: "idKey is required",
+		})
+	}
+
+	addresses, err := h.bapLookup.LoadAddressesByIdKey(c.Context(), idKey)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(Response{
+			Status:  "ERROR",
+			Message: "Failed to fetch addresses: " + err.Error(),
+		})
+	}
+	if addresses == nil {
+		return c.Status(fiber.StatusNotFound).JSON(Response{
+			Status:  "ERROR",
+			Message: "identity not found",
+		})
+	}
+
+	return c.JSON(Response{
+		Status: "OK",
+		Result: addresses,
+	})
+}
+
+// curl 'http://localhost:8080/v1/social/likes?addresses=1AddrA,1AddrB&idKeys=example-id-key&limit=20&offset=0'
+func (h *Handlers) GetLikes(c *fiber.Ctx) error {
+	addresses := parseCSV(c.Query("addresses"))
+	idKeys := parseCSV(c.Query("idKeys"))
+	if len(addresses) == 0 && len(idKeys) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(Response{
+			Status:  "ERROR",
+			Message: "addresses or idKeys is required",
+		})
+	}
+
+	limit, err := queryInt(c, "limit", 20, 1, 100)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(Response{
+			Status:  "ERROR",
+			Message: err.Error(),
+		})
+	}
+	offset, err := queryInt(c, "offset", 0, 0, 0)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(Response{
+			Status:  "ERROR",
+			Message: err.Error(),
+		})
+	}
+
+	var unresolved []string
+	for _, idKey := range idKeys {
+		resolved, err := h.bapLookup.LoadAddressesByIdKey(c.Context(), idKey)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(Response{
+				Status:  "ERROR",
+				Message: "Failed to resolve idKey: " + err.Error(),
+			})
+		}
+		if resolved == nil {
+			// A follow can target an idKey that never registered BAP identity
+			// docs; skip it rather than failing the whole request.
+			unresolved = append(unresolved, idKey)
+			continue
+		}
+		addresses = append(addresses, resolved...)
+	}
+	if len(unresolved) > 0 {
+		log.Printf("social/likes: skipped %d unresolved idKeys: %s", len(unresolved), strings.Join(unresolved, ","))
+	}
+	addresses = uniqueStrings(addresses)
+	if len(addresses) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(Response{
+			Status:  "ERROR",
+			Message: "no addresses resolved (unknown idKeys: " + strings.Join(unresolved, ",") + ")",
+		})
+	}
+
+	likes, err := h.bsocialLookup.LikesByAddresses(c.Context(), addresses, limit, offset)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(Response{
+			Status:  "ERROR",
+			Message: "Failed to fetch likes: " + err.Error(),
+		})
+	}
+
+	return c.JSON(Response{
+		Status: "OK",
+		Result: likes,
+	})
+}
+
+// curl 'http://localhost:8080/v1/social/likes/count?tx=txid1,txid2'
+func (h *Handlers) GetLikeCounts(c *fiber.Ctx) error {
+	txids := parseCSV(c.Query("tx"))
+	if len(txids) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(Response{
+			Status:  "ERROR",
+			Message: "tx is required",
+		})
+	}
+	if len(txids) > 100 {
+		return c.Status(fiber.StatusBadRequest).JSON(Response{
+			Status:  "ERROR",
+			Message: "tx supports at most 100 values",
+		})
+	}
+
+	counts, err := h.bsocialLookup.LikeCountsByTxIDs(c.Context(), txids)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(Response{
+			Status:  "ERROR",
+			Message: "Failed to count likes: " + err.Error(),
+		})
+	}
+
+	return c.JSON(Response{
+		Status: "OK",
+		Result: counts,
+	})
+}
+
+func parseCSV(value string) []string {
+	parts := strings.Split(value, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			result = append(result, part)
+		}
+	}
+	return result
+}
+
+func uniqueStrings(values []string) []string {
+	result := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+	return result
+}
+
+func queryInt(c *fiber.Ctx, name string, defaultValue int, minValue int, maxValue int) (int, error) {
+	value := c.QueryInt(name, defaultValue)
+	raw := c.Query(name)
+	if raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil {
+			return 0, fmt.Errorf("%s must be an integer", name)
+		}
+		value = parsed
+	}
+	if value < minValue {
+		return 0, fmt.Errorf("%s must be at least %d", name, minValue)
+	}
+	if maxValue > 0 && value > maxValue {
+		return 0, fmt.Errorf("%s must be at most %d", name, maxValue)
+	}
+	return value, nil
 }
 
 // @Summary Validate identity by address

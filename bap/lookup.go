@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/bsv-blockchain/go-overlay-services/pkg/core/engine"
 	"github.com/b-open-io/overlay/publish"
 	"github.com/bitcoin-sv/go-templates/template/bitcom"
+	"github.com/bsv-blockchain/go-overlay-services/pkg/core/engine"
 	"github.com/bsv-blockchain/go-sdk/chainhash"
 	"github.com/bsv-blockchain/go-sdk/overlay"
 	"github.com/bsv-blockchain/go-sdk/overlay/lookup"
@@ -170,6 +170,36 @@ func (l *LookupService) LoadIdentityById(ctx context.Context, id string) (*Ident
 		return nil, err
 	}
 	return identity, nil
+}
+
+func (l *LookupService) LoadAddressesByIdKey(ctx context.Context, id string) ([]string, error) {
+	var identity struct {
+		Addresses []Address `bson:"addresses"`
+	}
+	err := l.db.Collection("identities").FindOne(
+		ctx,
+		bson.M{"_id": id},
+		options.FindOne().SetProjection(bson.M{"addresses.address": 1}),
+	).Decode(&identity)
+	if err == mongo.ErrNoDocuments {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+
+	addresses := make([]string, 0, len(identity.Addresses))
+	seen := make(map[string]struct{}, len(identity.Addresses))
+	for _, address := range identity.Addresses {
+		if address.Address == "" {
+			continue
+		}
+		if _, ok := seen[address.Address]; ok {
+			continue
+		}
+		seen[address.Address] = struct{}{}
+		addresses = append(addresses, address.Address)
+	}
+	return addresses, nil
 }
 
 func (l *LookupService) LoadIdentityByAddress(ctx context.Context, address string) (*Identity, error) {
