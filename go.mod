@@ -29,7 +29,7 @@ require (
 	github.com/bitcoinschema/go-bob v0.5.2 // indirect
 	github.com/bitcoinschema/go-boost v0.2.2 // indirect
 	github.com/bitcoinschema/go-bpu v0.2.2 // indirect
-	github.com/bitcoinschema/go-map v0.2.2 // indirect
+	github.com/bitcoinschema/go-map v0.2.3-0.20260909031639-11ecdc371b06 // indirect
 	github.com/bitcoinschema/go-sigma v0.1.2 // indirect
 	github.com/centrifugal/centrifuge-go v0.10.10 // indirect
 	github.com/centrifugal/protocol v0.16.1 // indirect

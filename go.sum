@@ -29,6 +29,8 @@ github.com/bitcoinschema/go-bpu v0.2.3-0.20250520163642-056754e86b34 h1:y/dyy2qf
 github.com/bitcoinschema/go-bpu v0.2.3-0.20250520163642-056754e86b34/go.mod h1:0D3vh4IQ1+pe6LS64tP2a0/76ZIsh91F7UKXt3UmI1s=
 github.com/bitcoinschema/go-map v0.2.2 h1:ouAceAmk+fJtW66iRzXdEU5OZSd4mYyLL3LA5SmjiF8=
 github.com/bitcoinschema/go-map v0.2.2/go.mod h1:oz0mMLDMSfI8gmwz+MQ1cTcSmYOhnlSdlS/lF0jIdzM=
+github.com/bitcoinschema/go-map v0.2.3-0.20260909031639-11ecdc371b06 h1:3PVazqFHQmGnR+Xtu038GhdCwTZ1Q52SlmWSehVb0HM=
+github.com/bitcoinschema/go-map v0.2.3-0.20260909031639-11ecdc371b06/go.mod h1:oz0mMLDMSfI8gmwz+MQ1cTcSmYOhnlSdlS/lF0jIdzM=
 github.com/bitcoinschema/go-sigma v0.1.2 h1:tFNlZZ8QnSokHlWL/39+NCzC1x2lTO3uOJhcvBkC1TE=
 github.com/bitcoinschema/go-sigma v0.1.2/go.mod h1:9mkkvkONfiSCPPTQimJYNp+5darSfSxZbuD225AGq9M=
 github.com/bmatcuk/doublestar v1.1.1/go.mod h1:UD6OnuiIn0yFxxA2le/rnRU1G4RaI4UvFv1sNto9p6w=

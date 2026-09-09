@@ -2,6 +2,7 @@ package bsocial
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"strings"
@@ -481,11 +482,14 @@ func PrepareForIngestion(bmapData *bmap.Tx) (bsonData bson.M, err error) {
 			"filename":     b.Filename,
 		}
 
-		if strings.HasPrefix(b.MediaType, "text") {
-			if len(b.Data) > 256*1024 {
-				item["content"] = string(b.Data[:256*1024])
-			} else {
-				item["content"] = string(b.Data)
+		encoding := strings.ToLower(b.Encoding)
+		if (encoding == "utf8" || encoding == "utf-8") && utf8.Valid(b.Data) {
+			item["content"] = string(b.Data)
+		} else {
+			item["content"] = base64.StdEncoding.EncodeToString(b.Data)
+			if encoding == "utf8" || encoding == "utf-8" {
+				item["original-encoding"] = b.Encoding
+				item["encoding"] = "binary"
 			}
 		}
 		bs = append(bs, item)
@@ -496,7 +500,7 @@ func PrepareForIngestion(bmapData *bmap.Tx) (bsonData bson.M, err error) {
 		bsonData["BOOST"] = bmapData.BOOST
 	}
 
-	if bmapData.MAP == nil {
+	if len(bmapData.MAP) == 0 {
 		log.Println("No MAP data.")
 		return
 	}
