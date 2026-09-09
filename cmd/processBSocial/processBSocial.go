@@ -4,19 +4,20 @@ import (
 	"context"
 	"flag"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
 
-	"github.com/bsv-blockchain/go-overlay-services/pkg/core/engine"
 	"github.com/GorillaPool/go-junglebus"
 	"github.com/b-open-io/bsocial-overlay/bsocial"
 	"github.com/b-open-io/overlay/beef"
 	"github.com/b-open-io/overlay/publish"
 	"github.com/b-open-io/overlay/storage"
 	"github.com/b-open-io/overlay/subscriber"
+	"github.com/bsv-blockchain/go-overlay-services/pkg/core/engine"
 	"github.com/bsv-blockchain/go-sdk/chainhash"
 	"github.com/bsv-blockchain/go-sdk/overlay"
 	"github.com/bsv-blockchain/go-sdk/transaction/chaintracker/headers_client"
@@ -116,20 +117,20 @@ func main() {
 		if TOPIC == "" {
 			return
 		}
-		
+
 		// Configure the subscriber
 		subConfig := &subscriber.SubscriberConfig{
 			TopicID:   TOPIC,
 			QueueName: QUEUE,
 			FromBlock: uint64(FROM_BLOCK),
 			FromPage:  0,
-			QueueSize: 10000000,
+			QueueSize: 1000,
 			LiteMode:  true,
 		}
-		
+
 		// Create and start the subscriber
 		sub := subscriber.NewSubscriber(subConfig, rdb, jb)
-		
+
 		// Start subscription (will run until context cancelled)
 		if err := sub.Start(ctx); err != nil {
 			log.Printf("Subscriber stopped: %v", err)
@@ -140,6 +141,7 @@ func main() {
 	done := make(chan *txSummary, 1000)
 	go func() {
 		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
 		txcount := 0
 		outcount := 0
 		// accTime
@@ -163,18 +165,23 @@ func main() {
 		}
 	}()
 
-	limiter := make(chan struct{}, CONCURRENCY) // Limit concurrent processing to 100 transactions
+	client := &http.Client{Timeout: 30 * time.Second}
+	retry := func(txid string) {
+		// Negative scores preserve failed jobs in the same durable queue until due.
+		if err := rdb.ZAdd(ctx, QUEUE, redis.Z{Member: txid, Score: -float64(time.Now().Add(time.Minute).UnixMilli())}).Err(); err != nil {
+			log.Printf("Failed to defer %s: %v", txid, err)
+		}
+	}
+	limiter := make(chan struct{}, CONCURRENCY)
 	var wg sync.WaitGroup
 	for {
 		txids, err := rdb.ZRangeArgs(ctx, redis.ZRangeArgs{
-			Key: QUEUE,
-			// Start: 0,
-			// Stop:  -1,
+			Key:     QUEUE,
 			Stop:    "+inf",
-			Start:   "-inf",
+			Start:   -float64(time.Now().UnixMilli()),
 			Rev:     true,
 			ByScore: true,
-			Count:   1000, // Fetch up to 1000 transactions at a time
+			Count:   int64(CONCURRENCY * 10),
 		}).Result()
 		if err != nil {
 			log.Fatalf("Failed to query Redis: %v", err)
@@ -191,26 +198,26 @@ func main() {
 				go func(txidStr string) {
 					defer wg.Done()
 					defer func() { <-limiter }() // Release the slot in the limiter
-					// log.Println("Processing transaction", txidStr)
+					jobCtx, cancelJob := context.WithTimeout(ctx, 30*time.Second)
+					defer cancelJob()
 					if txid, err := chainhash.NewHashFromHex(txidStr); err != nil {
-						log.Fatalf("Invalid txid: %v", err)
-					} else if _, err := beefStore.LoadTx(ctx, txid, chaintracker); err != nil {
-						log.Fatalf("Failed to load transaction: %v", err)
-					} else if beefBytes, err := beefStore.LoadBeef(ctx, txid); err != nil {
-						log.Fatalf("Failed to load BEEF: %v", err)
+						log.Printf("Invalid queued txid %s: %v", txidStr, err)
+						retry(txidStr)
+					} else if beefBytes, err := bsocial.FetchBeef(jobCtx, client, os.Getenv("JUNGLEBUS"), txid); err != nil {
+						log.Printf("Retrying %s after BEEF fetch: %v", txidStr, err)
+						retry(txidStr)
 					} else {
 						taggedBeef := overlay.TaggedBEEF{
 							Beef:   beefBytes,
 							Topics: []string{tm},
 						}
-						logTime := time.Now()
-						if admit, err := e.Submit(ctx, taggedBeef, engine.SubmitModeHistorical, nil); err != nil {
-							log.Fatalf("Failed to submit transaction: %v", err)
+						if admit, err := e.Submit(jobCtx, taggedBeef, engine.SubmitModeHistorical, nil); err != nil {
+							log.Printf("Retrying %s after submit: %v", txidStr, err)
+							retry(txidStr)
 						} else {
 							if err := rdb.ZRem(ctx, QUEUE, txidStr).Err(); err != nil {
-								log.Fatalf("Failed to delete from queue: %v", err)
+								log.Printf("Failed to acknowledge %s: %v", txidStr, err)
 							}
-							log.Println("Processed", txid, "in", time.Since(logTime), "as", admit[tm].OutputsToAdmit)
 							done <- &txSummary{
 								tx:  1,
 								out: len(admit[tm].OutputsToAdmit),
@@ -222,8 +229,11 @@ func main() {
 		}
 		wg.Wait()
 		if len(txids) == 0 {
-			log.Println("No transactions to process, waiting for 10 seconds...")
-			time.Sleep(10 * time.Second)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(time.Second):
+			}
 		}
 	}
 }

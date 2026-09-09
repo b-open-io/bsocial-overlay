@@ -7,13 +7,14 @@ require (
 	github.com/b-open-io/overlay v0.0.0-20250716183703-bc4711030ed2
 	github.com/bdpiprava/scalar-go v0.13.0
 	github.com/bitcoin-sv/go-templates v0.0.0-00010101000000-000000000000
+	github.com/bitcoinschema/go-b v0.2.3
 	github.com/bitcoinschema/go-bmap v0.2.4
+	github.com/bitcoinschema/go-map v0.2.3-0.20260909041123-307d61a2f797
 	github.com/bsv-blockchain/go-overlay-services v0.1.1
 	github.com/bsv-blockchain/go-sdk v1.2.5
 	github.com/gofiber/fiber/v2 v2.52.8
 	github.com/joho/godotenv v1.5.1
 	github.com/redis/go-redis/v9 v9.11.0
-	github.com/swaggo/files v1.0.1
 	github.com/swaggo/swag/v2 v2.0.0-rc4
 	go.mongodb.org/mongo-driver v1.17.3
 	go.mongodb.org/mongo-driver/v2 v2.2.2
@@ -24,12 +25,10 @@ require (
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/bitcoinschema/go-aip v0.3.3 // indirect
-	github.com/bitcoinschema/go-b v0.2.3 // indirect
 	github.com/bitcoinschema/go-bap v0.4.2 // indirect
 	github.com/bitcoinschema/go-bob v0.5.2 // indirect
 	github.com/bitcoinschema/go-boost v0.2.2 // indirect
-	github.com/bitcoinschema/go-bpu v0.2.2 // indirect
-	github.com/bitcoinschema/go-map v0.2.2 // indirect
+	github.com/bitcoinschema/go-bpu v0.2.3-0.20250520163642-056754e86b34 // indirect
 	github.com/bitcoinschema/go-sigma v0.1.2 // indirect
 	github.com/centrifugal/centrifuge-go v0.10.10 // indirect
 	github.com/centrifugal/protocol v0.16.1 // indirect
