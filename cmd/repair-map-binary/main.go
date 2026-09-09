@@ -58,7 +58,7 @@ func main() {
 	if *after != "" {
 		filter["_id"] = bson.M{"$gt": *after}
 	}
-	cursor, err := col.Find(ctx, filter, options.Find().SetProjection(bson.M{"_id": 1, "MAP": 1}).SetSort(bson.D{{Key: "_id", Value: 1}}).SetBatchSize(10).SetLimit(*limit))
+	cursor, err := col.Find(ctx, filter, options.Find().SetProjection(bson.M{"_id": 1, "MAP": 1}).SetSort(bson.D{{Key: "_id", Value: 1}}).SetBatchSize(100).SetLimit(*limit))
 	if err != nil {
 		log.Fatal("Query failed")
 	}
@@ -93,7 +93,7 @@ func main() {
 			log.Fatal(err)
 		}
 		// Compare the original MAP field to avoid overwriting a concurrent reindex.
-		result, err := col.UpdateOne(ctx, bson.M{"_id": id, "MAP": doc["MAP"]}, bson.M{"$set": bson.M{"MAP": safe}})
+		result, err := col.UpdateOne(ctx, bson.M{"_id": id, "MAP": raw.Lookup("MAP")}, bson.M{"$set": bson.M{"MAP": safe}})
 		if err != nil {
 			log.Fatal(err)
 		}
