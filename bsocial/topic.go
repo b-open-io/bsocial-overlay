@@ -14,7 +14,7 @@ type TopicManager struct {
 	// Storage *BAPStorage
 }
 
-var mapTypes = []string{"post", "message", "like", "unlike", "follow", "unfollow", "friend", "unfriend", "repost", "tags"}
+var mapTypes = []string{"post", "message", "like", "unlike", "follow", "unfollow", "friend", "unfriend", "repost", "video", "tags"}
 
 func (tm *TopicManager) IdentifyAdmissibleOutputs(ctx context.Context, beefBytes []byte, previousCoins map[uint32]*transaction.TransactionOutput) (admit overlay.AdmittanceInstructions, err error) {
 	_, tx, _, err := transaction.ParseBeef(beefBytes)
