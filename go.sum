@@ -1,5 +1,3 @@
-github.com/GorillaPool/go-junglebus v0.2.14 h1:dnGU3LIZ21JiHeeSRW0Yn5xvSHKgiN0T/t3cioABtyg=
-github.com/GorillaPool/go-junglebus v0.2.14/go.mod h1:EMAAnFQbBQB7xLe7DdLTLbescKUudflsXT0CqlSeWgQ=
 github.com/KyleBanks/depth v1.2.1 h1:5h8fQADFrWtarTdtDudMmGsC7GPbOAu6RVB3ffsVFHc=
 github.com/KyleBanks/depth v1.2.1/go.mod h1:jzSb9d0L43HxTQfT+oSA1EEp2q+ne2uh6XgeJcm8brE=
 github.com/RaveNoX/go-jsoncommentstrip v1.0.0/go.mod h1:78ihd09MekBnJnxpICcwzCMzGrKSKYe4AqU6PDYYpjk=
@@ -7,6 +5,8 @@ github.com/andybalholm/brotli v1.1.1 h1:PR2pgnyFznKEugtsUo0xLdDop5SKXd5Qf5ysW+7X
 github.com/andybalholm/brotli v1.1.1/go.mod h1:05ib4cKhjx3OQYUY22hTVd34Bc8upXjOLL2rKwwZBoA=
 github.com/apapsch/go-jsonmerge/v2 v2.0.0 h1:axGnT1gRIfimI7gJifB699GoE/oq+F2MU7Dml6nw9rQ=
 github.com/apapsch/go-jsonmerge/v2 v2.0.0/go.mod h1:lvDnEdqiQrp0O42VQGgmlKpxL1AP2+08jFMw88y4klk=
+github.com/b-open-io/go-junglebus v0.2.15-0.20260909050812-d20d2549dc58 h1:nwE0SfnGNxowakvFmdmO3PALl17OWGdNtNkzVXHjzXg=
+github.com/b-open-io/go-junglebus v0.2.15-0.20260909050812-d20d2549dc58/go.mod h1:zdtOkPWXUNuqqBQ5YxJO+EgxM2dJzImNgKZNR5Q5RhA=
 github.com/b-open-io/go-templates v0.0.0-20250611003449-d3d47c4c4967 h1:O8Ghj6Y4sEZhC5eZBFHhdXQz/X+uN3qyifbOGYWiJd8=
 github.com/b-open-io/go-templates v0.0.0-20250611003449-d3d47c4c4967/go.mod h1:xFs0s0P1uT0cReDWg1kbTV1T/7Nm5yt42GKDn9bPjSw=
 github.com/b-open-io/overlay v0.0.0-20250716183703-bc4711030ed2 h1:M2dNZUYC/uW5t6TYNTqRbuJ4kOgsf4rKxDUEplFNDYk=
