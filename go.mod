@@ -92,3 +92,5 @@ replace github.com/bsv-blockchain/go-overlay-services => github.com/bsv-blockcha
 replace github.com/bitcoin-sv/go-templates => github.com/b-open-io/go-templates v0.0.0-20250611003449-d3d47c4c4967
 
 replace github.com/bitcoinschema/go-bpu => github.com/bitcoinschema/go-bpu v0.2.3-0.20250520163642-056754e86b34
+
+replace github.com/GorillaPool/go-junglebus => github.com/b-open-io/go-junglebus v0.2.15-0.20260909050812-d20d2549dc58
